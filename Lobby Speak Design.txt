@@ -1,0 +1,14 @@
+Lobby Speak Design
+
+Introduction: "Welcome to the [Name of Project], where do you want to access. The options are: Play Solo, Play Muliplayer, Leaderboards, Tutorials, Premium
+Option (first time): It looks like this is your first time
+
+User: Play Solo
+Alexa: Ok. Welcome to solo player mode. Currently you have no saved data. Begining stage one.
+Alexa: Ok, Welcome back to solo player mode. You currently have a game in session in [stage one]. Would you like to continue? (continue intent and solo player intent)
+User: Yes
+Alexa: Continuing your game. You made a total of [5 moves], in level two of this stage. Your health is [5]. Do you want to roll the dice to move forward?
+User: Yes
+Alexa: Rolling dice [initiate turn]
+User: no
+Alexa: You can say help for a list of choice you can make besides moving forward. (Help intent && Solo intent && attrubutes = making a turn)
