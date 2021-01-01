@@ -10,11 +10,11 @@ const AWS = require('aws-sdk');
 //Requires State Manager  
 const saveState = require('./saveStatesTest')
 const stateLobby = {
-    "Stage One": false,
-    "Stage Two": false,
+    "Soloplay": false,
+    "Multiplay": false,
     "Leaderboard": false,
-    "Tutorial": false,
-    "Multiplayer": false
+    "Premium": false,
+    "Tutorial": false
 }
 // Makes sure only one of the stateLobby Variable is set to true for double checking and making sure there are no bugs
 // Passes one state to be true and set others all false  

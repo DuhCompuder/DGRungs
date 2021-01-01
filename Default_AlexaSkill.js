@@ -4,7 +4,13 @@
  * session persistence, api calls, and more.
  * */
 const Alexa = require('ask-sdk-core');
-const state = require('./saveStatesTest.js')
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//      Import State
+//
+////////////////////////////////////////////////////////////////////////////////
+const state = require('./persistenceStateStructure.js');
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -19,7 +25,161 @@ const LaunchRequestHandler = {
             .getResponse();
     }
 };
+/////////////////////////////////////////////////////////////////////////////////
+//                                                                             //
+//      Main VUI Setters (5: Solo, Multi, Leaderboard, Premium, Tutorial)      //
+//                                                                             //
+/////////////////////////////////////////////////////////////////////////////////
+const stateVUI = {
+    "Soloplay": false,
+    "Multiplay": false,
+    "Leaderboard": false,
+    "Premium": false,
+    "Tutorial": false
+};
+// This attribute needs to be true whenever user want to leave a session to return to lobby.
+// If User wants to access any of the other VUI states, a prompt will be asked to them if they are
+// sure to exit the current VUI state an return to the lobby. (Test if needed at all or not)
+const returnToLobby = false
+/////////////////////////////////////////////////////////////////////////////////////////
+// 
+//   VUI State Functions:
+//
+//      - Makes sure only one of the stateLobby Variable is set to true for 
+//        double checking and making sure there are no bugs.
+//      - Passes one state to be true and set others all false.
+//
+function setLobbyState(lobbyState) {
+    stateVUI[lobbyState] = true;
+    for (const state in stateVUI) {
+        if(state != lobbyState){
+            Object(state) = false;
+        }
+    }
+}
+function readGameState(sessionAttributes) {
+    //Returns the game state
+}
+// Load persistence attributes
+function loadFromPersistance(handlerInput){
+    //Returns persistence attributes
+}
 
+//////////////////////////////////////////////////////////////////////////////////////////
+//  Tasks: 
+//      - Set a state attribute that identifies location as Lobby in order to user these
+//      - Modify to set stateVUI object using setLobbyState() function
+//
+const SoloPlayIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPlaySolo';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        //Set state to play solo in attributes
+        setLobbyState("Soloplay")
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const MultiPlayIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPlayMulti';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        //Set state to play solo in attributes
+        setLobbyState("Multiplay")
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const LeaderboardIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainLeaderboard';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        //Set state to play solo in attributes
+        setLobbyState("Leaderboard")
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const PremiumIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPremium';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        //Set state to play solo in attributes
+        setLobbyState("Premium")
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const TutorialIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainTutorial';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        //Set state to play solo in attributes
+        setLobbyState("Tutorial")
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+
+///////////////////////////////////////////////////////////
+//                                      //
+//      Solo Play VUI Navigators        //
+//                                      //
+///////////////////////////////////////////////////////////
+
+const NavigateSoloPlayIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'PlaySolo';
+            //&& getSlotValue(State.playSolo);
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+//////////////////
+//// Template ////
+//////////////////
 const HelloWorldIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -145,7 +305,11 @@ const ErrorHandler = {
 exports.handler = Alexa.SkillBuilders.custom()
     .addRequestHandlers(
         LaunchRequestHandler,
-        HelloWorldIntentHandler,
+        SoloPlayIntentHandler,
+        MultiPlayIntentHandler,
+        LeaderboardIntentHandler,
+        PremiumIntentHandler,
+        TutorialIntentHandler,
         HelpIntentHandler,
         CancelAndStopIntentHandler,
         FallbackIntentHandler,

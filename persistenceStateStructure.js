@@ -3,7 +3,7 @@
 //      State Structure
 //
 //////////////////////////////////////////////////////////////////
-sessionAttributes.GAME = {
+const saveState = {
     LEADERBOARD: {
         SOLO_SCORE: {
             MAX: 6,
