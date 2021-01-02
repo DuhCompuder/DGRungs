@@ -150,3 +150,18 @@ const LobbyHandler = {
             .getResponse();
     }
 };
+//move navigators
+MoveTurnIntentHandler,
+EquipItemIntentHandler,
+RequestPositionIntentHandler,
+CheckCoinsIntentHandler,
+CheckLeaderboardIntentHandler,
+InitiateEncounterHandler,
+InBattleMoveTurnIntentHandler,
+AttackTurnIntentHandler,
+//Utilitiy Handlers,
+EscapeBattleIntentHandler,
+HealIntentHandler,
+BlockAttackIntentHandler,
+CheckInventoryIntentHandler,
+CheckHealthIntentHandler

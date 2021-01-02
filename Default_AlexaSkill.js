@@ -93,7 +93,7 @@ const MultiPlayIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPlayMulti';
     },
     handle(handlerInput) {
-        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        const speakOutput = 'You are playing multiplayer mode, you dont have a game going so starting new game.';
         //Set state to play solo in attributes
         setLobbyState("Multiplay")
 
@@ -110,7 +110,7 @@ const LeaderboardIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainLeaderboard';
     },
     handle(handlerInput) {
-        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        const speakOutput = 'Welcome to the Leaderboards. You can check out your high scores here.';
         //Set state to play solo in attributes
         setLobbyState("Leaderboard")
 
@@ -127,7 +127,7 @@ const PremiumIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPremium';
     },
     handle(handlerInput) {
-        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        const speakOutput = 'This is the premium area. Check out what premium purchases you can add to your account.';
         //Set state to play solo in attributes
         setLobbyState("Premium")
 
@@ -144,7 +144,7 @@ const TutorialIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainTutorial';
     },
     handle(handlerInput) {
-        const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        const speakOutput = 'Here we are going to take you through a tutorial of the game. Solo or Multiplayer?';
         //Set state to play solo in attributes
         setLobbyState("Tutorial")
 
@@ -194,6 +194,12 @@ const HelloWorldIntentHandler = {
             .getResponse();
     }
 };
+
+///////////////////////////////////////////////////////////
+//                                      //
+//      Default Handlers                //
+//                                      //
+///////////////////////////////////////////////////////////
 
 const HelpIntentHandler = {
     canHandle(handlerInput) {
@@ -305,11 +311,28 @@ const ErrorHandler = {
 exports.handler = Alexa.SkillBuilders.custom()
     .addRequestHandlers(
         LaunchRequestHandler,
+        //VUI Navigators
         SoloPlayIntentHandler,
         MultiPlayIntentHandler,
         LeaderboardIntentHandler,
         PremiumIntentHandler,
         TutorialIntentHandler,
+        //Moveset Navigators
+        MoveTurnIntentHandler,
+        EquipItemIntentHandler,
+        RequestPositionIntentHandler,
+        CheckCoinsIntentHandler,
+        CheckLeaderboardIntentHandler,
+        InitiateEncounterHandler,
+        InBattleMoveTurnIntentHandler,
+        AttackTurnIntentHandler,
+        //Game Utilitiy Handlers
+        EscapeBattleIntentHandler,
+        HealIntentHandler,
+        BlockAttackIntentHandler,
+        CheckInventoryIntentHandler,
+        CheckHealthIntentHandler,
+        //Default Utility
         HelpIntentHandler,
         CancelAndStopIntentHandler,
         FallbackIntentHandler,
