@@ -195,6 +195,197 @@ const HelloWorldIntentHandler = {
     }
 };
 
+/////////////////////////////////////////////////////////////////////////////////
+//                                                                             //
+//      Moveset Navigators 
+            // 1 MoveTurnIntentHandler,
+            // 2 AttackTurnIntentHandler,
+            // 3 BlockAttackIntentHandler,
+            // 4 EscapeBattleIntentHandler,
+            // 5 HealIntentHandler
+//                                                                             //
+/////////////////////////////////////////////////////////////////////////////////
+
+const MoveTurnIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MoveTurnIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const AttackTurnIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AttackTurnIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const BlockAttackIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'BlockAttackIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const EscapeBattleIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'EscapeBattleIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const HealIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'HealIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+/////////////////////////////////////////////////////////////////////////////////
+//                                                                             //
+//      Game Utility Handlers
+            // 1 EquipItemIntentHandler,
+            // 2 RequestPositionIntentHandler,
+            // 3 CheckCoinsIntentHandler,
+            // 4 CheckInventoryIntentHandler,
+            // 5 CheckHealthIntentHandler,
+            // 6 CheckLeaderboardIntentHandler, //---------Use only to check current scoreboard
+            // InitiateEncounterHandler, //--------don't think I am using this
+            // InBattleMoveTurnIntentHandler, //--------don't think I am using this either
+            
+//                                                                             //
+/////////////////////////////////////////////////////////////////////////////////
+
+const EquipItemIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'EquipItemIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const RequestPositionIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'RequestPositionIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const CheckCoinsIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CheckCoinsIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const RequestPositionIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'RequestPositionIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const CheckHealthIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CheckHealthIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
+const CheckLeaderboardIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CheckLeaderboardIntent';
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Hello World!';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .getResponse();
+    }
+};
+
 ///////////////////////////////////////////////////////////
 //                                      //
 //      Default Handlers                //
@@ -319,17 +510,17 @@ exports.handler = Alexa.SkillBuilders.custom()
         TutorialIntentHandler,
         //Moveset Navigators
         MoveTurnIntentHandler,
+        AttackTurnIntentHandler,
+        BlockAttackIntentHandler,
+        //Game Utilitiy Handlers
         EquipItemIntentHandler,
         RequestPositionIntentHandler,
         CheckCoinsIntentHandler,
-        CheckLeaderboardIntentHandler,
+        CheckLeaderboardIntentHandler, 
         InitiateEncounterHandler,
         InBattleMoveTurnIntentHandler,
-        AttackTurnIntentHandler,
-        //Game Utilitiy Handlers
         EscapeBattleIntentHandler,
         HealIntentHandler,
-        BlockAttackIntentHandler,
         CheckInventoryIntentHandler,
         CheckHealthIntentHandler,
         //Default Utility
