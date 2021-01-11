@@ -4,6 +4,7 @@
 //
 //////////////////////////////////////////////////////////////////
 const saveState = {
+    NEWSESSION = false,
     LEADERBOARD: {
         SOLO_SCORE: {
             MAX: 6,

@@ -12,3 +12,17 @@ User: Yes
 Alexa: Rolling dice [initiate turn]
 User: no
 Alexa: You can say help for a list of choice you can make besides moving forward. (Help intent && Solo intent && attrubutes = making a turn)
+
+
+Sunday Jan 10 2021:
+
+Design staggered and permissioned object access save state
+Create Functions to write and load from save state
+Create Functions to permission navigators sets and data
+Create return to Lobby Function and response in game to require return to lobby to use certain commands
+ 
+ *Note: implementation of canUse modifiers requires complex Fallback/IntentReflector handler structure
+        fallback handler dependant of stateVUI and Navigation alerts for user
+        to show where they are and what they can say/ actions they can do
+
+Tasks: All finished execpt for refining the entire game state. can finish today or tommorrow.

@@ -11,6 +11,8 @@ const Alexa = require('ask-sdk-core');
 //
 ////////////////////////////////////////////////////////////////////////////////
 const state = require('./persistenceStateStructure.js');
+const debug = true; 
+// debug?console.log();
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -18,7 +20,31 @@ const LaunchRequestHandler = {
     },
     handle(handlerInput) {
         const speakOutput = 'Welcome, welcome to dungeon rungs? Where do you want to go? Solo Play, Muliplayer, Leaderboard or Premium?';
-
+        setLobbyState("Lobby", handlerInput);
+        returnSessionAttributes(handlerInput); //change to final sessions structure
+        
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(speakOutput)
+            .getResponse();
+    }
+};
+const returnToLobbyHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_ReturnToLobbyIntent'; //create the intent in console
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Are you sure you want to leave and return to the lobby?';
+        //Modify the yes handler to handle this scenario
+        //If yes, response is "Ok, taking you back to the lobby"
+        // resolve setLobbyState("Lobby", handlerInput); on a "yes handled"
+        
+        // remove after installing yes handler:
+        setLobbyState("Lobby", handlerInput); // remove after yes handler
+        returnSessionAttributes(handlerInput); //change to final sessions structure
+        
+        //Saves what ever session the current user is in now.
         return handlerInput.responseBuilder
             .speak(speakOutput)
             .reprompt(speakOutput)
@@ -31,6 +57,7 @@ const LaunchRequestHandler = {
 //                                                                             //
 /////////////////////////////////////////////////////////////////////////////////
 const stateVUI = {
+    "Lobby": true,
     "Soloplay": false,
     "Multiplay": false,
     "Leaderboard": false,
@@ -40,7 +67,7 @@ const stateVUI = {
 // This attribute needs to be true whenever user want to leave a session to return to lobby.
 // If User wants to access any of the other VUI states, a prompt will be asked to them if they are
 // sure to exit the current VUI state an return to the lobby. (Test if needed at all or not)
-const returnToLobby = false
+const returnToLobby = false;
 /////////////////////////////////////////////////////////////////////////////////////////
 // 
 //   VUI State Functions:
@@ -49,20 +76,80 @@ const returnToLobby = false
 //        double checking and making sure there are no bugs.
 //      - Passes one state to be true and set others all false.
 //
-function setLobbyState(lobbyState) {
+function setLobbyState(lobbyState, handlerInput) {
+    // uncomment for debugging
+    console.log(`Lobbystate is: ${lobbyState}.`, `Initial StateVUI: ${JSON.stringify(stateVUI)}`);
     stateVUI[lobbyState] = true;
     for (const state in stateVUI) {
-        if(state != lobbyState){
-            Object(state) = false;
+        if(state !== lobbyState){
+            stateVUI[state] = false;
         }
     }
+    //save state
+    saveSessionAttributes(handlerInput);
+    // uncomment for debugging
+    //debug?console.log(`Final StateVUI: ${JSON.stringify(stateVUI)}`):debug;
 }
-function readGameState(sessionAttributes) {
+// internal handler save state modifier --read
+function readGameState(handlerInput, sessionAttributes) {
+    //Checks stateVUI
+    //Switches to set State Navigators and Data
     //Returns the game state
 }
-// Load persistence attributes
-function loadFromPersistance(handlerInput){
-    //Returns persistence attributes
+// internal handler save state modifier --write
+function writeGameState(handlerInput, sessionAttributes) {
+    //Checks stateVUI
+    //Modify save sate
+    //save partial game state to whole game state
+    //Returns the game state?
+}
+function switchGameStateNavigationLocale() {
+    //Switches to set State Navigators and Data
+    //Returns partial game state
+}
+// // create session attributes
+// function newSessionAttributes(handlerInput, newSessionAttributes){
+//     const { attributesManager } = handlerInput;
+//     let sessionAttributes = attributesManager.getSessionAttributes() || {};
+//     sessionAttributes = newSessionAttributes;
+// }
+// load session attributes
+function loadSessionAttributes(handlerInput){
+    const { attributesManager } = handlerInput;
+    const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    //let game = in_progress.hasOwnProperty('gameInfo'); //Modify for complex structure
+    return sessionAttributes;
+}
+// save session attributes --- //only if saved structure exists already
+function saveSessionAttributes(handlerInput){ 
+    const { attributesManager } = handlerInput;
+    const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    sessionAttributes.GAMENAV = stateVUI;
+}
+// Load persistence attributes --- function must call on await
+// function loadFromPersistance(handlerInput){
+//     const { attributesManager } = handlerInput;
+//     let inProgress = attributesManager.getPersistentAttributes() || {}; 
+//     return inProgress;
+// }
+// Save persistence attributes --- function must call on await
+function saveToPersistance(handlerInput, saveAttributes){
+    const { attributesManager } = handlerInput;
+    const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    attributesManager.setPersistentAttributes(saveAttributes);
+    attributesManager.savePersistentAttributes();
+}
+function returnSessionAttributes(handlerInput){ 
+    const { attributesManager } = handlerInput;
+    const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    if (sessionAttributes.NEWSESSION === false) {
+        //console.log("load old: ",JSON.stringify(sessionAttributes)); //debugger
+        return sessionAttributes;
+    }
+    sessionAttributes.NEWSESSION = false;
+    sessionAttributes.GAMENAV = stateVUI;
+    debug ? console.log("load new: ",JSON.stringify(sessionAttributes)): debug; //debugger
+    return sessionAttributes;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -72,85 +159,95 @@ function loadFromPersistance(handlerInput){
 //
 const SoloPlayIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
+        console.log("canUse: ", canUse.GAMENAV["Lobby"])
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPlaySolo';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_PlaySolo'
+            && canUse.GAMENAV["Lobby"] === true;
     },
     handle(handlerInput) {
         const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
         //Set state to play solo in attributes
-        setLobbyState("Soloplay")
-
+        setLobbyState("Soloplay", handlerInput);
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
 const MultiPlayIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPlayMulti';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_PlayMulti'
+            && canUse.GAMENAV["Lobby"] === true;
     },
     handle(handlerInput) {
         const speakOutput = 'You are playing multiplayer mode, you dont have a game going so starting new game.';
         //Set state to play solo in attributes
-        setLobbyState("Multiplay")
+        setLobbyState("Multiplay", handlerInput)
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
 const LeaderboardIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainLeaderboard';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_Leaderboard'
+            && canUse.GAMENAV["Lobby"] === true;
     },
     handle(handlerInput) {
         const speakOutput = 'Welcome to the Leaderboards. You can check out your high scores here.';
         //Set state to play solo in attributes
-        setLobbyState("Leaderboard")
+        setLobbyState("Leaderboard", handlerInput)
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
 const PremiumIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainPremium';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_Premium'
+            && canUse.GAMENAV["Lobby"] === true;
     },
     handle(handlerInput) {
         const speakOutput = 'This is the premium area. Check out what premium purchases you can add to your account.';
         //Set state to play solo in attributes
-        setLobbyState("Premium")
+        setLobbyState("Premium", handlerInput)
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
 const TutorialIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MainTutorial';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_Tutorial'
+            && canUse.GAMENAV["Lobby"] === true;
     },
     handle(handlerInput) {
         const speakOutput = 'Here we are going to take you through a tutorial of the game. Solo or Multiplayer?';
         //Set state to play solo in attributes
-        setLobbyState("Tutorial")
+        setLobbyState("Tutorial", handlerInput)
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
@@ -161,22 +258,50 @@ const TutorialIntentHandler = {
 //      Solo Play VUI Navigators        //
 //                                      //
 ///////////////////////////////////////////////////////////
-
 const NavigateSoloPlayIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'PlaySolo';
-            //&& getSlotValue(State.playSolo);
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_PlaySolo'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
         const speakOutput = 'Hello World!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
+
+///////////////////////////////////////////////////////////
+//                                      //
+//      Multi Play VUI Navigators       //
+//                                      //
+///////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////
+//                                      //
+//      Leaderboard VUI Navigators      //
+//                                      //
+///////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////
+//                                      //
+//      Premium VUI Navigators          //
+//                                      //
+///////////////////////////////////////////////////////////
+
+// Import Random ask upsale functions //
+
+///////////////////////////////////////////////////////////
+//                                      //
+//      Tutorial VUI Navigators         //
+//                                      //
+///////////////////////////////////////////////////////////
+
+
 //////////////////
 //// Template ////
 //////////////////
@@ -190,7 +315,7 @@ const HelloWorldIntentHandler = {
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
@@ -208,75 +333,85 @@ const HelloWorldIntentHandler = {
 
 const MoveTurnIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'MoveTurnIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_MoveIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Move Turn!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
 const AttackTurnIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AttackTurnIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_AttackIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Attack Turn!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
 const BlockAttackIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'BlockAttackIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_BlockIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Block Turn!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
-const EscapeBattleIntentHandler = {
+const EscapeTurnIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'EscapeBattleIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_EscapeIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Escape Turn!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
 const HealIntentHandler = {
     canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'HealIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_HealIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Heal Turn!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
@@ -289,7 +424,7 @@ const HealIntentHandler = {
             // 3 CheckCoinsIntentHandler,
             // 4 CheckInventoryIntentHandler,
             // 5 CheckHealthIntentHandler,
-            // 6 CheckLeaderboardIntentHandler, //---------Use only to check current scoreboard
+            // 6 CheckScoreIntentHandler, //---------Use only to check current scoreboard
             // InitiateEncounterHandler, //--------don't think I am using this
             // InBattleMoveTurnIntentHandler, //--------don't think I am using this either
             
@@ -299,14 +434,14 @@ const HealIntentHandler = {
 const EquipItemIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'EquipItemIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Util_EquipItemIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Equip Item!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
@@ -314,14 +449,14 @@ const EquipItemIntentHandler = {
 const RequestPositionIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'RequestPositionIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Util_RequestPositionIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Request Position!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
@@ -329,29 +464,29 @@ const RequestPositionIntentHandler = {
 const CheckCoinsIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CheckCoinsIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Util_CheckCoinsIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Check Coins!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
-const RequestPositionIntentHandler = {
+const CheckInventoryIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'RequestPositionIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Util_CheckInventoryIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Check Inventory!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
@@ -359,32 +494,41 @@ const RequestPositionIntentHandler = {
 const CheckHealthIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CheckHealthIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Util_CheckHealthIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Check Health!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
 
-const CheckLeaderboardIntentHandler = {
+const CheckScoreIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'CheckLeaderboardIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Util_CheckScoreIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Hello World!';
+        const speakOutput = 'Check Score!';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('continue?')
             .getResponse();
     }
 };
+
+
+///////////////////////////////////////////////////////////
+//                                              //
+//      Complex Yes/No Handlers                 //
+//                                              //
+///////////////////////////////////////////////////////////
+
+// Build Yes and No intents for several scenarios
 
 ///////////////////////////////////////////////////////////
 //                                      //
@@ -432,7 +576,46 @@ const FallbackIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.FallbackIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Sorry, I don\'t know about that. Please try again.';
+        console.log("In FallbackIntentHandler")
+        let speakOutput;
+        let intentName = Alexa.getIntentName(handlerInput.requestEnvelope);
+        //All handler names
+        switch(intentName) {
+            //Main VUI state intents
+            case "Main_PlaySolo":
+            speakOutput = 'Please return to the main lobby before accessing Single Player. Just say return to the lobby.';
+                break;
+            case "Main_PlayMulti":
+            speakOutput = 'Please return to the main lobby before accessing Muliplayer. Just say return to the lobby.';
+                break;
+            case "Main_Leaderboard":
+            speakOutput = 'Please return to the main lobby before accessing the Leaderboard. Just say return to the lobby.';
+                break;
+            case "Main_Premium":
+            speakOutput = 'Please return to the main lobby before accessing Premium purchasable content. Just say return to the lobby.';
+                break;
+            case "Main_Tutorial":
+            speakOutput = 'Please return to the main lobby before accessing the Tutorial. Just say return to the lobby.';
+                break;
+            //Single Player Nav intents redirect
+            case "Turn_AttackIntent":
+            speakOutput = 'You cannot use the attack command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_BlockIntent":
+            speakOutput = 'You cannot use the block command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_HealIntent":
+            speakOutput = 'You cannot use the heal command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_EscapeIntent":
+            speakOutput = 'You cannot use the escape battle command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_MoveIntent":
+            speakOutput = 'You cannot use the move forward command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            default:
+            speakOutput = 'Sorry, I don\'t know about that. Please try again.';
+        }
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -465,12 +648,53 @@ const IntentReflectorHandler = {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest';
     },
     handle(handlerInput) {
+        console.log("In IntentReflectorHandler") //debug
         const intentName = Alexa.getIntentName(handlerInput.requestEnvelope);
-        const speakOutput = `You just triggered ${intentName}`;
-
+        let speakOutput;
+        switch(intentName) {
+            //Main VUI state intents
+            case "Main_PlaySolo":
+            speakOutput = 'Please return to the main lobby before accessing Single Player. Just say return to the lobby.';
+                break;
+            case "Main_PlayMulti":
+            speakOutput = 'Please return to the main lobby before accessing Muliplayer. Just say return to the lobby.';
+                break;
+            case "Main_Leaderboard":
+            speakOutput = 'Please return to the main lobby before accessing the Leaderboard. Just say return to the lobby.';
+                break;
+            case "Main_Premium":
+            speakOutput = 'Please return to the main lobby before accessing Premium purchasable content. Just say return to the lobby.';
+                break;
+            case "Main_Tutorial":
+            speakOutput = 'Please return to the main lobby before accessing the Tutorial. Just say return to the lobby.';
+                break;
+            //Single Player Nav intents redirect
+            case "Turn_AttackIntent":
+            speakOutput = 'You cannot use the attack command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_BlockIntent":
+            speakOutput = 'You cannot use the block command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_HealIntent":
+            speakOutput = 'You cannot use the heal command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_EscapeIntent":
+            speakOutput = 'You cannot use the escape battle command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Turn_MoveIntent":
+            speakOutput = 'You cannot use the move forward command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            //MultiPlayer Nav intents redirect
+            //Leaderboard Nav intents redirect
+            //Premium Nav intents redirect
+            //Tutorial Nav intents redirect
+            default:
+            speakOutput = `You just triggered ${intentName}` //----Change this during production //'Sorry, I don\'t know about that. Please try again.';
+        }
+    
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            //.reprompt('add a reprompt if you want to keep the session open for the user to respond')
+            .reprompt('Continue?')
             .getResponse();
     }
 };
@@ -502,28 +726,29 @@ const ErrorHandler = {
 exports.handler = Alexa.SkillBuilders.custom()
     .addRequestHandlers(
         LaunchRequestHandler,
-        //VUI Navigators
+        returnToLobbyHandler,
+        /// VUI Navigators
         SoloPlayIntentHandler,
         MultiPlayIntentHandler,
         LeaderboardIntentHandler,
         PremiumIntentHandler,
         TutorialIntentHandler,
-        //Moveset Navigators
+        /// Moveset Navigators
         MoveTurnIntentHandler,
         AttackTurnIntentHandler,
         BlockAttackIntentHandler,
-        //Game Utilitiy Handlers
+        EscapeTurnIntentHandler,
+        HealIntentHandler,
+        /// Game Utilitiy Handlers
         EquipItemIntentHandler,
         RequestPositionIntentHandler,
         CheckCoinsIntentHandler,
-        CheckLeaderboardIntentHandler, 
-        InitiateEncounterHandler,
-        InBattleMoveTurnIntentHandler,
-        EscapeBattleIntentHandler,
-        HealIntentHandler,
+        CheckScoreIntentHandler, 
+        //InitiateEncounterHandler,
+        //InBattleMoveTurnIntentHandler,
         CheckInventoryIntentHandler,
         CheckHealthIntentHandler,
-        //Default Utility
+        /// Default Utility
         HelpIntentHandler,
         CancelAndStopIntentHandler,
         FallbackIntentHandler,
