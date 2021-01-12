@@ -4,7 +4,7 @@
  * session persistence, api calls, and more.
  * */
 const Alexa = require('ask-sdk-core');
-
+const prompt = require('./speakUtil.js');
 ////////////////////////////////////////////////////////////////////////////////
 //
 //      Import State
@@ -39,9 +39,9 @@ const returnToLobbyHandler = {
         //Modify the yes handler to handle this scenario
         //If yes, response is "Ok, taking you back to the lobby"
         // resolve setLobbyState("Lobby", handlerInput); on a "yes handled"
-        
+        returnToLobby = true;
         // remove after installing yes handler:
-        setLobbyState("Lobby", handlerInput); // remove after yes handler
+        // setLobbyState("Lobby", handlerInput); // remove after yes handler
         returnSessionAttributes(handlerInput); //change to final sessions structure
         
         //Saves what ever session the current user is in now.
@@ -56,6 +56,7 @@ const returnToLobbyHandler = {
 //      Main VUI Setters (5: Solo, Multi, Leaderboard, Premium, Tutorial)      //
 //                                                                             //
 /////////////////////////////////////////////////////////////////////////////////
+// Does not persist, only active in session attributes
 const stateVUI = {
     "Lobby": true,
     "Soloplay": false,
@@ -67,7 +68,7 @@ const stateVUI = {
 // This attribute needs to be true whenever user want to leave a session to return to lobby.
 // If User wants to access any of the other VUI states, a prompt will be asked to them if they are
 // sure to exit the current VUI state an return to the lobby. (Test if needed at all or not)
-const returnToLobby = false;
+let returnToLobby = false;
 /////////////////////////////////////////////////////////////////////////////////////////
 // 
 //   VUI State Functions:
@@ -167,6 +168,7 @@ const SoloPlayIntentHandler = {
     },
     handle(handlerInput) {
         const speakOutput = 'You are playing solo player mode, you dont have a game going so starting new game.';
+        //take user to solo play navigators
         //Set state to play solo in attributes
         setLobbyState("Soloplay", handlerInput);
         return handlerInput.responseBuilder
@@ -258,6 +260,8 @@ const TutorialIntentHandler = {
 //      Solo Play VUI Navigators        //
 //                                      //
 ///////////////////////////////////////////////////////////
+//
+//      Users access available stages in game //if completed level one
 const NavigateSoloPlayIntentHandler = {
     canHandle(handlerInput) {
         const canUse = returnSessionAttributes(handlerInput);
@@ -294,6 +298,8 @@ const NavigateSoloPlayIntentHandler = {
 ///////////////////////////////////////////////////////////
 
 // Import Random ask upsale functions //
+
+// Create Check Purchased function
 
 ///////////////////////////////////////////////////////////
 //                                      //
@@ -528,7 +534,135 @@ const CheckScoreIntentHandler = {
 //                                              //
 ///////////////////////////////////////////////////////////
 
-// Build Yes and No intents for several scenarios
+/// Build Yes and No intents for several scenarios
+
+const YesIntent_ReturnLobbyHandler = {
+    canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.YesIntent'
+            && canUse.GAMENAV["Lobby"] === false
+            && returnToLobby === true;
+    },
+    handle(handlerInput) {
+        setLobbyState("Lobby", handlerInput);
+        let speakOutput = "Ok, taking you back to the lobby";
+        returnToLobby = false;
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(prompt.LOBBYSPEAK)
+            .getResponse();
+    }
+};
+
+const NoIntent_ReturnLobbyHandler = {
+    canHandle(handlerInput) {
+        const canUse = returnSessionAttributes(handlerInput);
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.NoIntent'
+            && canUse.GAMENAV["Lobby"] === false
+            && returnToLobby === true;
+    },
+    handle(handlerInput) {
+        let speakOutput = "OK, please say continue";
+        const state = Object.keys(stateVUI);
+        const active = state.filter(function(id) {
+            return stateVUI[id]
+        })
+        // Three options for switch statements
+        // 1) Speak response to continue current vui state
+        // 2) Redirect to continue handler for current vui state
+        // 3) Speak response to similar first accessing current vui state
+        switch (active[0]) {
+            case "Lobby":
+                speakOutput = "OK, please say continue";
+                break;
+            case "Soloplay":
+                speakOutput = "OK, please say continue game"; 
+                break;
+            case "Multiplay":
+                speakOutput = "OK, please say continue game";
+                break;
+            case "Leaderboard":
+                speakOutput = "OK, please say continue";
+                break;
+            case "Tutorial":
+                speakOutput = "OK, please say continue";
+                break;
+        }
+        returnToLobby = false;
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt("Say continue.")
+            .getResponse();
+    }
+};
+
+// const HasCactusYesIntentHandler = {
+//     canHandle(handlerInput) {
+//         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+//             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.YesIntent'
+//             && getProfile(handlerInput).cactus;
+//     },
+//     handle(handlerInput) {
+//         handlerInput.responseBuilder.speak('You already have a cactus.')
+//         if(isHTMLCapableFireTV(handlerInput)) {
+//             return handlerInput.responseBuilder.getResponse();
+//         }
+
+//         return handlerInput.responseBuilder
+//             .reprompt('You already have a cactus.')
+//             .getResponse();
+//     }
+// };
+
+// const YesIntentHandler = {
+//     canHandle(handlerInput) {
+//         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' 
+//             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.YesIntent';
+//     },
+//     handle(handlerInput) {
+//         return LaunchRequestHandler.handle(handlerInput);
+//     }
+// };
+
+
+// const DeadCactusNoIntentHandler = {
+//     canHandle(handlerInput) {
+//         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+//             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.NoIntent'
+//             && !getProfile(handlerInput).cactus;
+//     },
+//     handle(handlerInput) {
+//         let speakOutput = "Ok. I'll give you time to grieve. I have lots "; 
+//         speakOutput += "more cacti in need of homes when you decide you're "; 
+//         speakOutput += "ready to try again. Goodbye";
+
+//         return handlerInput.responseBuilder
+//             .speak(speakOutput)
+//             .getResponse();
+//     }
+// };
+
+// // TODO: Ask Alison for a better response.
+// const HasCactusNoIntentHandler = {
+//     canHandle(handlerInput) {
+//         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+//             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.NoIntent'
+//             && getProfile(handlerInput).cactus;
+//     },
+//     handle(handlerInput) {
+//         handlerInput.responseBuilder.speak("You already have a cactus that's alive and well. You water the water the cactus, or open and close the blinds. Which will it be?")
+            
+//         if(isHTMLCapableFireTV(handlerInput)) {
+//             return handlerInput.responseBuilder.getResponse();
+//         }
+
+//         return handlerInput.responseBuilder
+//             .reprompt("You already have a cactus that's alive and well. You water the water the cactus, or open and close the blinds. Which will it be?")
+//             .getResponse();
+//     }
+// };
 
 ///////////////////////////////////////////////////////////
 //                                      //
@@ -597,6 +731,10 @@ const FallbackIntentHandler = {
             case "Main_Tutorial":
             speakOutput = 'Please return to the main lobby before accessing the Tutorial. Just say return to the lobby.';
                 break;
+            // May not need
+            // case "Main_ReturnToLobbyIntent":
+            // speakOutput = 'This is the Lobby.';
+            //     break;
             //Single Player Nav intents redirect
             case "Turn_AttackIntent":
             speakOutput = 'You cannot use the attack command outside of a game session. Please go to Single Player or MultiPlayer mode.';
@@ -612,6 +750,24 @@ const FallbackIntentHandler = {
                 break;
             case "Turn_MoveIntent":
             speakOutput = 'You cannot use the move forward command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckScoreIntent": //debating to use or not
+            speakOutput = 'You cannot check your current score outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckHealthIntent":
+            speakOutput = 'You cannot check your health outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckInventoryIntent":
+            speakOutput = 'You cannot check your inventory outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckCoinsIntent":
+            speakOutput = 'You cannot check your coin pouch outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_EquipItemIntent":
+            speakOutput = 'You cannot equip an item outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_RequestPositionIntent":
+            speakOutput = 'You cannot request your position in game outside of a game session. Please go to Single Player or MultiPlayer mode.';
                 break;
             default:
             speakOutput = 'Sorry, I don\'t know about that. Please try again.';
@@ -668,6 +824,11 @@ const IntentReflectorHandler = {
             case "Main_Tutorial":
             speakOutput = 'Please return to the main lobby before accessing the Tutorial. Just say return to the lobby.';
                 break;
+            // May not need
+            // case "Main_ReturnToLobbyIntent":
+            // speakOutput = 'This is the Lobby.';
+            //     break;
+            //Single Player Nav intents redirect
             //Single Player Nav intents redirect
             case "Turn_AttackIntent":
             speakOutput = 'You cannot use the attack command outside of a game session. Please go to Single Player or MultiPlayer mode.';
@@ -683,6 +844,24 @@ const IntentReflectorHandler = {
                 break;
             case "Turn_MoveIntent":
             speakOutput = 'You cannot use the move forward command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckScoreIntent": //debating to use or not
+            speakOutput = 'You cannot check your current score outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckHealthIntent":
+            speakOutput = 'You cannot check your health outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckInventoryIntent":
+            speakOutput = 'You cannot check your inventory outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_CheckCoinsIntent":
+            speakOutput = 'You cannot check your coin pouch outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_EquipItemIntent":
+            speakOutput = 'You cannot equip an item outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                break;
+            case "Util_RequestPositionIntent":
+            speakOutput = 'You cannot request your position in game outside of a game session. Please go to Single Player or MultiPlayer mode.';
                 break;
             //MultiPlayer Nav intents redirect
             //Leaderboard Nav intents redirect
@@ -717,6 +896,78 @@ const ErrorHandler = {
             .getResponse();
     }
 };
+
+// interceptors
+
+// const NewSessionRequestInterceptor = {
+//   async process(handlerInput) {
+//     console.log('NewSessionRequestInterceptor:', JSON.stringify(handlerInput.requestEnvelope.request));
+    
+//     const profile = getProfile(handlerInput);
+
+//     if (handlerInput.requestEnvelope.session.new && profile.cactus) {
+        
+//         const currentDateTime = moment.tz(profile.timeZone);
+//         const latestInteraction = moment(profile.latestInteraction).tz(profile.timeZone);
+        
+//         console.log("current date:", currentDateTime.dayOfYear(), "latestInteraction:", latestInteraction.dayOfYear());
+        
+//         if (currentDateTime.dayOfYear() !== latestInteraction.dayOfYear()) {
+//             profile.timesChecked = 0;
+//         }
+//         profile.timesChecked += 1;
+        
+//         handlerInput.attributesManager.setPersistentAttributes(profile);
+//         handlerInput.attributesManager.savePersistentAttributes();
+//     }
+//   }
+// };
+
+// const LoadProfileRequestInterceptor = {
+//     async process(handlerInput) {
+//         console.log("WHOLE REQUEST: " + JSON.stringify(handlerInput.requestEnvelope));
+//         const attributesManager = handlerInput.attributesManager;
+        
+//         let profile = await attributesManager.getPersistentAttributes();
+
+//         const deviceId = Alexa.getDeviceId(handlerInput.requestEnvelope);
+//         const timeZone = await util.getTimeZone(handlerInput, deviceId);
+//         console.log("LoadProfileRequestInterceptor - timezone", timeZone);
+        
+//         // If no profile initiate a new one - first interaction with skill
+//         if(!profile.hasOwnProperty("lifeTime")) {
+//             profile = profileUtil.defaultProfile()
+//         } else if (profile.cactus) { // Check if there is a cactus before compute status
+//             profile.cactus = statusUtil.computeStatus(profile, moment(), timeZone);
+//             badgeUtil.evaluate(profile, moment());
+//         }
+        
+//         profile.timeZone = timeZone;
+        
+//         attributesManager.setSessionAttributes(profile);
+//         console.log("LoadProfileRequestInterceptor", JSON.stringify(attributesManager.getSessionAttributes()));
+//     }
+// }
+
+// const UpdateLatestInteractionResponseInterceptor = {
+//     process(handlerInput) {
+//         const profile = getProfile(handlerInput);
+        
+//         //console.log("UpdateLatestInteractionResponseInterceptor", JSON.stringify(profile))
+        
+//         profile.latestInteraction = moment.now();
+        
+//         handlerInput.attributesManager.setPersistentAttributes(profile);
+//         handlerInput.attributesManager.savePersistentAttributes();
+//     }
+// }
+
+// const LogResponseJsonResponseInterceptor = {
+//     process(handlerInput) {
+//         //TODO figure out why this response is empty on the LaunchRequest response.
+//         console.log("Response JSON:", JSON.stringify(handlerInput.responseBuilder.getResponse()));
+//     }
+// };
 
 /**
  * This handler acts as the entry point for your skill, routing all request and response

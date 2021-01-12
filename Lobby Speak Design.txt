@@ -25,4 +25,23 @@ Create return to Lobby Function and response in game to require return to lobby 
         fallback handler dependant of stateVUI and Navigation alerts for user
         to show where they are and what they can say/ actions they can do
 
-Tasks: All finished execpt for refining the entire game state. can finish today or tommorrow.
+Tasks: All finished execpt for refining the entire game state. can finish today or tommorrow. (1/11)
+        Also: Modify a yes/no handler for complex optionality (1/11)
+        Ontrack Macro Tasks:  
+            Fill the commands in for single player (1/12)
+            Develop Boss Battle Functionality -- incorporate dodge Functionality? (1/12)
+            Develop Robust Muliplayer (1/13)
+            Develop Tutorials (1/14)
+            Develop Premium Purchasable content -- Levels and in game items (1/14)
+            Develop Graphics for game (AnyTime)
+            Launch Game (1/14)
+
+Monday Jan 11 2021:
+
+*LEARN: Consider using Interceptors
+
+Completed state structure for Single Player and Multiplayer session attributes
+Completed but have not tested Return to Lobby Yes No Intent Handlers
+Consider flushing out a more robust No Intent Handler (details listed on NoIntentHandler already)
+
+Refine Solo play commands to complete for tommorrow

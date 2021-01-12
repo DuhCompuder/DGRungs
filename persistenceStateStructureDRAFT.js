@@ -77,6 +77,7 @@ const saveState = {
                     STATEMACHINE: {
                         InterfaceLocation: "Lobby",
                         UserStats: {
+                            //Mutiple saves?
                             Users: [
                                 {
                                     User0: {
