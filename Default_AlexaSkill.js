@@ -4,13 +4,17 @@
  * session persistence, api calls, and more.
  * */
 const Alexa = require('ask-sdk-core');
-const prompt = require('./speakUtil.js');
+const AWS = require('aws-sdk');
+const PROMPT = require('./speakUtil');
+const COMBAT = require('./combatUtil');
+const GAME = require('./gameModUtil');
 ////////////////////////////////////////////////////////////////////////////////
 //
 //      Import State
 //
 ////////////////////////////////////////////////////////////////////////////////
-const state = require('./persistenceStateStructure.js');
+const STATE = require('./persistenceStateStructure');
+const persistenceAdapter = require('ask-sdk-s3-persistence-adapter');
 const debug = true; 
 // debug?console.log();
 
@@ -18,10 +22,12 @@ const LaunchRequestHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
     },
-    handle(handlerInput) {
+    async handle(handlerInput) {
         const speakOutput = 'Welcome, welcome to dungeon rungs? Where do you want to go? Solo Play, Muliplayer, Leaderboard or Premium?';
+        await loadFromPersistance(handlerInput);
+        fetchSessionAttributes(handlerInput); //change to final sessions structure
         setLobbyState("Lobby", handlerInput);
-        returnSessionAttributes(handlerInput); //change to final sessions structure
+        console.log("first correct")
         
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -29,7 +35,7 @@ const LaunchRequestHandler = {
             .getResponse();
     }
 };
-const returnToLobbyHandler = {
+const ReturnToLobbyHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_ReturnToLobbyIntent'; //create the intent in console
@@ -39,10 +45,10 @@ const returnToLobbyHandler = {
         //Modify the yes handler to handle this scenario
         //If yes, response is "Ok, taking you back to the lobby"
         // resolve setLobbyState("Lobby", handlerInput); on a "yes handled"
-        returnToLobby = true;
+        yesNoModifiers.returnToLobby = true;
         // remove after installing yes handler:
         // setLobbyState("Lobby", handlerInput); // remove after yes handler
-        returnSessionAttributes(handlerInput); //change to final sessions structure
+        fetchSessionAttributes(handlerInput); //change to final sessions structure
         
         //Saves what ever session the current user is in now.
         return handlerInput.responseBuilder
@@ -51,6 +57,31 @@ const returnToLobbyHandler = {
             .getResponse();
     }
 };
+const StartNewGameHandler = {
+    canHandle(handlerInput) {
+        const canUse = fetchSessionAttributes(handlerInput);
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_ReturnToLobbyIntent' 
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
+    },
+    handle(handlerInput) {
+        const speakOutput = 'Are you sure you want start a new game? Your old unsaved data will be overwritten.';
+        //Modify the yes handler to handle this scenario
+        //If yes, response is "Ok, taking you back to the lobby"
+        // resolve setLobbyState("Lobby", handlerInput); on a "yes handled"
+        yesNoModifiers.startNewGame = true;
+        // remove after installing yes handler:
+        // setLobbyState("Lobby", handlerInput); // remove after yes handler
+        fetchSessionAttributes(handlerInput); //change to final sessions structure
+        
+        //Saves what ever session the current user is in now.
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(speakOutput)
+            .getResponse();
+    }
+};
+
 /////////////////////////////////////////////////////////////////////////////////
 //                                                                             //
 //      Main VUI Setters (5: Solo, Multi, Leaderboard, Premium, Tutorial)      //
@@ -68,7 +99,10 @@ const stateVUI = {
 // This attribute needs to be true whenever user want to leave a session to return to lobby.
 // If User wants to access any of the other VUI states, a prompt will be asked to them if they are
 // sure to exit the current VUI state an return to the lobby. (Test if needed at all or not)
-let returnToLobby = false;
+const yesNoModifiers = {
+    returnToLobby: false,
+    startNewGame: false
+}
 /////////////////////////////////////////////////////////////////////////////////////////
 // 
 //   VUI State Functions:
@@ -89,7 +123,7 @@ function setLobbyState(lobbyState, handlerInput) {
     //save state
     saveSessionAttributes(handlerInput);
     // uncomment for debugging
-    //debug?console.log(`Final StateVUI: ${JSON.stringify(stateVUI)}`):debug;
+    debug?console.log(`Final StateVUI: ${JSON.stringify(stateVUI)}`):debug;
 }
 // internal handler save state modifier --read
 function readGameState(handlerInput, sessionAttributes) {
@@ -115,24 +149,47 @@ function switchGameStateNavigationLocale() {
 //     sessionAttributes = newSessionAttributes;
 // }
 // load session attributes
-function loadSessionAttributes(handlerInput){
+async function loadSessionAttributes(handlerInput){
     const { attributesManager } = handlerInput;
-    const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    const sessionAttributes = await attributesManager.getSessionAttributes() || {};
     //let game = in_progress.hasOwnProperty('gameInfo'); //Modify for complex structure
+    attributesManager.setSessionAttributes(sessionAttributes);
     return sessionAttributes;
 }
-// save session attributes --- //only if saved structure exists already
-function saveSessionAttributes(handlerInput){ 
+//***************************************************************
+//      SAVE SESSION STRUCTURE (IMPORTANT)
+//***************************************************************
+// save session attributes --- //only if saved structure exists already //--arguement priority based on write frequency
+function saveSessionAttributes(handlerInput, _userInfo, _sessionNav, _gameLevelSet, _sessionHeader){ 
+    console.log("saveSessionAttributes testing"); //debugger
     const { attributesManager } = handlerInput;
     const sessionAttributes = attributesManager.getSessionAttributes() || {};
     sessionAttributes.GAMENAV = stateVUI;
+    sessionAttributes.SOLO_PLAY = STATE.dataSoloplay; //starting new session
+    _sessionHeader?sessionAttributes.SOLO_PLAY.SESSION_HEADER = _sessionHeader:_sessionHeader;
+    // { //Session Navigation
+    //     "NAME": "REPLACE_WITH_NAME",
+    //     "TIME:": "REPLACE_WITH_TIME"
+    // },
+    _sessionNav?sessionAttributes.SOLO_PLAY.SESSION_NAV = _sessionNav:_sessionNav;
+    // { //Session Navigation
+    // },
+    _gameLevelSet?sessionAttributes.SOLO_PLAY.GAME_LEVEL_SET = _gameLevelSet:_gameLevelSet;
+    // {
+    //     "LEVEL_ONE": true,
+    //     "LEVEL_TWO": false,
+    //     "LEVEL_THREE": false
+    // },
+    _userInfo?sessionAttributes.SOLO_PLAY.USER_SESSION_INFO = _userInfo:_userInfo;
+    attributesManager.setSessionAttributes(sessionAttributes);
+    saveToPersistance(handlerInput,sessionAttributes);
 }
 // Load persistence attributes --- function must call on await
-// function loadFromPersistance(handlerInput){
-//     const { attributesManager } = handlerInput;
-//     let inProgress = attributesManager.getPersistentAttributes() || {}; 
-//     return inProgress;
-// }
+function loadFromPersistance(handlerInput){
+    const { attributesManager } = handlerInput;
+    let inProgress = attributesManager.getPersistentAttributes() || {}; 
+    return inProgress;
+}
 // Save persistence attributes --- function must call on await
 function saveToPersistance(handlerInput, saveAttributes){
     const { attributesManager } = handlerInput;
@@ -140,16 +197,23 @@ function saveToPersistance(handlerInput, saveAttributes){
     attributesManager.setPersistentAttributes(saveAttributes);
     attributesManager.savePersistentAttributes();
 }
-function returnSessionAttributes(handlerInput){ 
+function fetchSessionAttributes(handlerInput){ 
+    //console.log("fetchSessionAttributes testing"); //debugger
+
     const { attributesManager } = handlerInput;
     const sessionAttributes = attributesManager.getSessionAttributes() || {};
+    //uncomment to renew saved Session Attributes
     if (sessionAttributes.NEWSESSION === false) {
-        //console.log("load old: ",JSON.stringify(sessionAttributes)); //debugger
+        // console.log("session attributes NEWSESSION is false ");//debugger
+        // console.log("load old: ",JSON.stringify(sessionAttributes)); //debugger
         return sessionAttributes;
     }
+    console.log("session attributes NEWSESSION is true ")
     sessionAttributes.NEWSESSION = false;
     sessionAttributes.GAMENAV = stateVUI;
-    debug ? console.log("load new: ",JSON.stringify(sessionAttributes)): debug; //debugger
+    sessionAttributes.SOLO_PLAY = STATE.dataSoloplay;
+
+    //debug ? console.log("load new: ",JSON.stringify(sessionAttributes)): debug; //debugger
     return sessionAttributes;
 }
 
@@ -160,8 +224,7 @@ function returnSessionAttributes(handlerInput){
 //
 const SoloPlayIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
-        console.log("canUse: ", canUse.GAMENAV["Lobby"])
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_PlaySolo'
             && canUse.GAMENAV["Lobby"] === true;
@@ -180,7 +243,7 @@ const SoloPlayIntentHandler = {
 
 const MultiPlayIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_PlayMulti'
             && canUse.GAMENAV["Lobby"] === true;
@@ -199,7 +262,7 @@ const MultiPlayIntentHandler = {
 
 const LeaderboardIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_Leaderboard'
             && canUse.GAMENAV["Lobby"] === true;
@@ -218,7 +281,7 @@ const LeaderboardIntentHandler = {
 
 const PremiumIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_Premium'
             && canUse.GAMENAV["Lobby"] === true;
@@ -237,7 +300,7 @@ const PremiumIntentHandler = {
 
 const TutorialIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_Tutorial'
             && canUse.GAMENAV["Lobby"] === true;
@@ -264,7 +327,7 @@ const TutorialIntentHandler = {
 //      Users access available stages in game //if completed level one
 const NavigateSoloPlayIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Main_PlaySolo'
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
@@ -339,13 +402,56 @@ const HelloWorldIntentHandler = {
 
 const MoveTurnIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_MoveIntent'
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
-    handle(handlerInput) {
-        const speakOutput = 'Move Turn!';
+    async handle(handlerInput) {
+        let speakOutput = 'Move Turn!';
+        let returnMode = 'SOLO_PLAY'; //get Solo play or Multiplay to update session[returnMode] data i.e. SOLO_PLAY etc.
+        console.log("Inside move handler") //debug
+        let session = fetchSessionAttributes(handlerInput);
+        console.log("session resolves with: ");
+        console.log(session)
+        let moveCount = GAME.dice();
+        console.log("Move count is: ")
+        console.log(moveCount)
+        //add moveCount to user position
+        console.log("user position is: ")
+        console.log(session[returnMode].USER_SESSION_INFO.position);
+        session[returnMode].USER_SESSION_INFO.position += moveCount; //update move function?
+        console.log("updated session with move count to position: ")
+        console.log(session);
+        //tell user of roll and move in position
+        speakOutput = `You rolled a ${moveCount}.`; //add sound effect?
+        //increase number of total moves by player
+        session[returnMode].USER_SESSION_INFO.numberOfMoves++;
+        console.log("USER_SESSION_INFO: ", session[returnMode].USER_SESSION_INFO.numberOfMoves) //debug
+        //check status of user position on whether up a rung or below a rung (if finished the game call the return function)
+        const onRung = GAME.checkRungOn(session[returnMode].USER_SESSION_INFO.position);
+        console.log("onRung: ", onRung)
+            //check the level of difficulty in rung and execute continuation
+            //initiate Encounter function to determine battle or no battle
+        const mobPickStatus = COMBAT.actOnPosition(onRung, 'stage1'); //actOnPosition(rung, stage) //modify stage to variable
+        console.log("mobPickStatus: ", mobPickStatus) //debug
+        //save to sessionAttributes
+        //save to persistence? //already set to regular save
+        if (mobPickStatus.name === "Clear Path") {
+            console.log("mobPickStatus resolved with clear path") //debug
+            //Change the speak outputs into variables in /speakUtil.js
+            speakOutput = 'You encountered a clear path to move forward. What do you like to do next?!';
+        } else {
+            console.log("mobPickStatus resolved with a mob") //debug
+            //function to update in combat details should session close in midbattle?
+            session[returnMode].USER_SESSION_INFO.inbattle = true;
+            session[returnMode].USER_SESSION_INFO.ongoingBattle.opponentStats = mobPickStatus.encounterDetails;
+            speakOutput = mobPickStatus.speakOutput; //`You encountered a ${mobPickStatus.name}. How do you want to engage in this battle?`;
+        }
+        
+        saveSessionAttributes(handlerInput, session[returnMode].USER_SESSION_INFO);
+        
+        //if inside a battle set user to inside an ongoing battle and cannot get out until battle is complete
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -356,13 +462,46 @@ const MoveTurnIntentHandler = {
 
 const AttackTurnIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_AttackIntent'
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Attack Turn!';
+        let speakOutput = 'Attack Turn!';
+        //*Retrieve sessionAttributes data
+        let returnMode = 'SOLO_PLAY';
+        let session = fetchSessionAttributes(handlerInput);
+        //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
+        if (session[returnMode].USER_SESSION_INFO.inbattle === false) {
+            speakOutput = 'You cannot use the attack move while not in a battle.';
+            return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt('continue?')
+            .getResponse();
+        }
+        //*If in a battle, begin attack squence:
+        //*Bring up stats of user and opponent
+        let opponentStats = session[returnMode].USER_SESSION_INFO.ongoingBattle.opponentStats;
+        //*use updated equipment details and stats to determine next choice of attack
+            //use a function to determin this
+        //*Having a sword, shield or armor changes attack vectors
+        //*Roll dice for attack
+        //*Calculate Damage results against enemy
+        //*Report result
+            //function determine response by equipment attack 
+            //update health
+            //*If opponent is still alive, it can attack back
+            //*If opponent is dead, collect loot and prompt for next move
+        //*Calculate Damage results from enemy attack
+        //*Report result
+            //function determine response by equipment defense
+            //update health
+            //*If user still alive, prompt for next move
+            //*If user dead, reset health and user position refected on level
+                //create function to update position based on knockback
+                
+        //*Save sessionAttributes after final changes to state
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -373,13 +512,37 @@ const AttackTurnIntentHandler = {
 
 const BlockAttackIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_BlockIntent'
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
         const speakOutput = 'Block Turn!';
+        //*Retrieve sessionAttributes data
+        //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
+        //*If in a battle, begin defense squence:
+        //*Bring up stats of user and opponent
+        //*use updated equipment details and stats to determine next choice of defense types
+            //use a function to determine this
+        //*Having a sword, shield or armor changes defense vectors
+        //*Roll dice for defense?
+        //*Calculate Damage results from enemy attack
+        //*Report result
+            //function determine response by equipment defense
+            //update health
+            //*If still alive, prompt for next move
+            //*If dead, reset health and user position reflected on level
+                //create function to update position based on knockback
+        //*Calculate Damage results from counter attack
+        //*Create complex counter acttack function mechanism
+        //*Report result
+            //function determine response by equipment defense
+            //update health
+            //*If enemy still alive, prompt for next move
+            //*If enemy dead, collect loot and prompt for next move
+            
+        //*Save sessionAttributes after final changes to state
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -390,14 +553,40 @@ const BlockAttackIntentHandler = {
 
 const EscapeTurnIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_EscapeIntent'
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
         const speakOutput = 'Escape Turn!';
-
+        //*Retrieve sessionAttributes data
+        //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
+            //Explain fleeing counts as a turn but they are not in a battle?
+        //*If in a battle, begin escape squence:
+        //*Bring up stats of user and opponent
+        
+        //*use updated equipment details and stats to determine next choice of defense types
+            //use a function to determine this
+        //*Having special items boost escape stats
+        
+        //*Determine possiblility of enemy preventing escape
+            //If not enemy attacks
+        //*No possiblility of counter attacks
+            //*Calculate Damage results from enemy attack
+            //*Report result
+                //function determine response by equipment defense
+                //update health
+                //*If still alive, prompt for next move
+                //*If dead, reset health and user position reflected on level
+                    //create function to update position based on knockback
+        
+        //*Explain fleeing counts as a turn and ask to confirm
+        //*If yes - count add to turn
+            //*Roll dice to determine flee back distance
+        //*If no ask what user what to do next against enemy in current battle session
+            
+        //*Save sessionAttributes after final changes to state
         return handlerInput.responseBuilder
             .speak(speakOutput)
             .reprompt('continue?')
@@ -405,15 +594,39 @@ const EscapeTurnIntentHandler = {
     }
 };
 
+
 const HealIntentHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_HealIntent'
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
         const speakOutput = 'Heal Turn!';
+        
+        //*Retrieve sessionAttributes data
+        //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
+            //Explain healing counts as a turn but they are not in a battle?
+        //*If in a battle, begin heal squence:
+        //*Bring up stats of user and opponent
+        
+        //Report heal cost to user and acknowledgement that it counts as a turn and current coin cost for healing as a yes or no response
+        //*If yes - count add to turn and update coins in wallet
+            //if not sufficient coins, report it and ask what to do next in battle sequence since can't heal
+            //*call on heal function to heal and increase cost of healing
+                //heal can only up to max health
+        //*If no ask what user what to do next against enemy in current battle session
+        
+        //***In old heal handler, user cannot heal during combat...
+            //Updated: healing cost less coins out of combat / healing cost more in combat and does not count as a turn?...yes... might be better for strategizing
+                //however, cost of healing needs to have a muliple in this case to determine heal count and price
+                    //Heal count as a base measure
+                    //Heal outside/inside battle adds 1 to heal count
+                    //Heal cost outside battle = base heal cost + heal count
+                    //Heal cost inside battle =  base heal cost + 2 times (heal count)
+            
+        //*Save sessionAttributes after final changes to state
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -538,30 +751,30 @@ const CheckScoreIntentHandler = {
 
 const YesIntent_ReturnLobbyHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.YesIntent'
             && canUse.GAMENAV["Lobby"] === false
-            && returnToLobby === true;
+            && yesNoModifiers.returnToLobby === true;
     },
     handle(handlerInput) {
         setLobbyState("Lobby", handlerInput);
         let speakOutput = "Ok, taking you back to the lobby";
-        returnToLobby = false;
+        yesNoModifiers.returnToLobby = false;
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt(prompt.LOBBYSPEAK)
+            .reprompt(PROMPT.LOBBYSPEAK)
             .getResponse();
     }
 };
 
 const NoIntent_ReturnLobbyHandler = {
     canHandle(handlerInput) {
-        const canUse = returnSessionAttributes(handlerInput);
+        const canUse = fetchSessionAttributes(handlerInput);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.NoIntent'
             && canUse.GAMENAV["Lobby"] === false
-            && returnToLobby === true;
+            && yesNoModifiers.returnToLobby === true;
     },
     handle(handlerInput) {
         let speakOutput = "OK, please say continue";
@@ -590,7 +803,94 @@ const NoIntent_ReturnLobbyHandler = {
                 speakOutput = "OK, please say continue";
                 break;
         }
-        returnToLobby = false;
+        yesNoModifiers.returnToLobby = false;
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt("Say continue.")
+            .getResponse();
+    }
+};
+//START NEW GAME
+const YesIntent_StartNewGameHandler = {
+    canHandle(handlerInput) {
+        const canUse = fetchSessionAttributes(handlerInput);
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.YesIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true)
+            && yesNoModifiers.startNewGame === true;
+    },
+    handle(handlerInput) {
+        //startDefault for game
+        //KeepLobbyState the same depending on either solo or Multiplay
+        //switch scenario for solo vs Multiplay
+        const state = Object.keys(stateVUI);
+        const active = state.filter(function(id) {
+            return stateVUI[id]
+        })
+        switch (active[0]) {
+            case "Soloplay":
+                speakOutput = "OK, starting a new single player gaming.";
+                // if(LEVEL_TWO === "AVAILABLE"){
+                //     speakOutput += ` Which level do you want to play in ${availableLevels}`;
+                //     //return responseBuilder to Soloplay sessionNav Handler
+                // } else {
+                //     speakOutput += ` Welcome to stage one`;
+                //     //return responseBuilder to Soloplay sessionNav Handler
+                // }
+                //ask for which stage if there are multiple stages
+                //saveSessionAttributes(handlerInput, _userInfo, _sessionNav, _gameLevelSet, _sessionHeader)
+                let defaultStart = GAME.startDefault();
+                saveSessionAttributes(handlerInput, defaultStart) //refresh sessionNav to beggining
+                break;
+            case "Multiplay":
+                speakOutput = "OK, starting a new Multiplayer game.";
+                break;
+        }
+        let speakOutput = "Ok, startNewGame";
+        yesNoModifiers.startNewGame = false;
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(PROMPT.LOBBYSPEAK)
+            .getResponse();
+    }
+};
+// Consider a unversal No handler
+const NoIntent_StartNewGameHandler = {
+    canHandle(handlerInput) {
+        const canUse = fetchSessionAttributes(handlerInput);
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.NoIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true)
+            && yesNoModifiers.startNewGame === true;
+    },
+    handle(handlerInput) {
+        let speakOutput = "OK, please say continue";
+        const state = Object.keys(stateVUI);
+        const active = state.filter(function(id) {
+            return stateVUI[id]
+        })
+        // Three options for switch statements
+        // 1) Speak response to continue current vui state
+        // 2) Redirect to continue handler for current vui state
+        // 3) Speak response to similar first accessing current vui state
+        switch (active[0]) {
+            case "Lobby":
+                speakOutput = "OK, please say continue";
+                break;
+            case "Soloplay":
+                speakOutput = "OK, please say continue game"; 
+                break;
+            case "Multiplay":
+                speakOutput = "OK, please say continue game";
+                break;
+            case "Leaderboard":
+                speakOutput = "OK, please say continue";
+                break;
+            case "Tutorial":
+                speakOutput = "OK, please say continue";
+                break;
+        }
+        yesNoModifiers.startNewGame = false;
         return handlerInput.responseBuilder
             .speak(speakOutput)
             .reprompt("Say continue.")
@@ -977,7 +1277,8 @@ const ErrorHandler = {
 exports.handler = Alexa.SkillBuilders.custom()
     .addRequestHandlers(
         LaunchRequestHandler,
-        returnToLobbyHandler,
+        ReturnToLobbyHandler,
+        StartNewGameHandler,
         /// VUI Navigators
         SoloPlayIntentHandler,
         MultiPlayIntentHandler,
@@ -999,6 +1300,9 @@ exports.handler = Alexa.SkillBuilders.custom()
         //InBattleMoveTurnIntentHandler,
         CheckInventoryIntentHandler,
         CheckHealthIntentHandler,
+        ///Yes/No handlers
+        YesIntent_ReturnLobbyHandler,
+        NoIntent_ReturnLobbyHandler,
         /// Default Utility
         HelpIntentHandler,
         CancelAndStopIntentHandler,
@@ -1007,5 +1311,11 @@ exports.handler = Alexa.SkillBuilders.custom()
         IntentReflectorHandler)
     .addErrorHandlers(
         ErrorHandler)
+    .withPersistenceAdapter(
+        new persistenceAdapter.S3PersistenceAdapter({
+            bucketName: process.env.S3_PERSISTENCE_BUCKET,
+            s3Client: new AWS.S3({apiVersion: 'latest', region: process.env.S3_PERSISTENCE_REGION})
+        })
+    )
     .withCustomUserAgent('sample/hello-world/v1.2')
     .lambda();

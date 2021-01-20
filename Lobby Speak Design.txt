@@ -45,3 +45,73 @@ Completed but have not tested Return to Lobby Yes No Intent Handlers
 Consider flushing out a more robust No Intent Handler (details listed on NoIntentHandler already)
 
 Refine Solo play commands to complete for tommorrow
+
+Tuesday Jan 12 2021:
+
+Outlined details for moveset handlers on solo play 
+-start considering efficieny techniques to migrate over for multiplay while writing solo play moveset handlers
+
+Consider developing universal tutorial toggle mode to reduce text on tutorial add ons for each handler
+-potentially much much easier than creating a seperate mode for a Tutorial. Just have it built in
+-prompt user in tutorial text to say turn off tutorial in each tutorial text 
+-and also they can always turn it back on when they want 
+    -(but this part of text with less frequency to add in to speech using a function to control when to say it just like upsale handler)
+-prompt user in tutorial text to say turn off tutorial or on tutorial whenever it is brought up in help handler
+
+Consider Equipment boosts:
+    -heal over time after certain number of moves bonus,
+    -Flee ratio increase
+
+Created StartNewGameHandler for solo and multi
+Modified Yes no intents for StartNewGameHandler
+
+Add StartNewGameHandler to fallback and IntentReflector responses
+
+Wednesday Jan 13 2021:
+
+Decided not to move forward with multiplayer for now
+Added persistence adapter
+Modified Moblist for multi stage Mobs 
+Finished actOnPosition function to return mob details for MoveHandler implementation
+Reviewed process for selecting mobs based on old algo and was quite efficent that I am surprise still right now
+Testing persistence structure for save attribute states
+Started to add ongoingBattle for mid combat with mobs by pushing details onto save state...
+
+Fix saveSessionAttributesHandler, the loadSession one works fine now.. but there is some issues with undefined showing up
+could be because the arguments are empty... FIX: set the arguemtns in the function only if they are available otherwise no...
+Save Session attribute handler fixed
+
+StartNew game handler does not work, nor does Move forward handler... debug thos
+
+
+Monday Jan 18 2021:
+
+Updated actOnPosition Function
+Updated initateEncounter Function
+Modify in Move Handler hardcoded stage1 string to stage variable in reflection of user session data pick
+
+Tuesday Jan 19 2021:
+
+Finished the rough version of moveTurnHandler code:
+    -with encounters
+    -updating inBattle
+    -check if exceed a rung
+Acutally might need to separate actOnPosition for initiate encounter and welcoming to new rung speakout
+
+Completed fetchLoot function
+
+Work to finish both combat handlers for attack and defense and then the shop handler.
+Consider Refining all the elements completed so far....
+Read over all the notes on here and comments on the code.
+
+create the attack and defend handler without items first to ensure basic functionality.
+Test the whole game without modifying attack and defense modifiers first. Once complete, 
+you go ahead with the addons knowing the functions work properly.
+
+Wednesday Jan 20 2021:
+
+Attack Handler and function complete and crisp. 
+Move Handler kind of janky and needs rework. Modularize it similar to Attack handler
+
+created a function to return the gameMode
+finished check coins handler
