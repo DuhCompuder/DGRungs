@@ -125,6 +125,38 @@ function setLobbyState(lobbyState, handlerInput) {
     // uncomment for debugging
     debug?console.log(`Final StateVUI: ${JSON.stringify(stateVUI)}`):debug;
 }
+function returnGameMode(sessionAttributes) {
+    console.log("sessionAttributes in returnGameMode: ", JSON.stringify(sessionAttributes))
+    const state = Object.keys(sessionAttributes.GAMENAV);
+    console.log("state: ", JSON.stringify(state));
+    let active = state.filter(function(id) {
+        if (sessionAttributes.GAMENAV[id] === true) {
+            console.log(id, sessionAttributes.GAMENAV[id]);
+            return sessionAttributes.GAMENAV[id]
+        }
+        console.log(id, "false")
+    })
+    let gameMode;
+    console.log("logging active: ", JSON.stringify(active));
+    switch (active[0]) {
+        case "Lobby":
+            gameMode = "";
+            break;
+        case "Soloplay":
+            gameMode = "SOLO_PLAY";
+            break;
+        case "Multiplay":
+            gameMode = "MULTI_PLAY";
+            break;
+        case "Leaderboard":
+            gameMode = "";
+            break;
+        case "Tutorial":
+            gameMode = "";
+            break;
+    }
+    return gameMode;
+}
 // internal handler save state modifier --read
 function readGameState(handlerInput, sessionAttributes) {
     //Checks stateVUI
@@ -164,8 +196,12 @@ function saveSessionAttributes(handlerInput, _userInfo, _sessionNav, _gameLevelS
     console.log("saveSessionAttributes testing"); //debugger
     const { attributesManager } = handlerInput;
     const sessionAttributes = attributesManager.getSessionAttributes() || {};
+
+    // console.log("session attributes NEWSESSION is false ");//debugger
+    // console.log("load old: ",JSON.stringify(sessionAttributes)); //debugger
     sessionAttributes.GAMENAV = stateVUI;
     sessionAttributes.SOLO_PLAY = STATE.dataSoloplay; //starting new session
+
     _sessionHeader?sessionAttributes.SOLO_PLAY.SESSION_HEADER = _sessionHeader:_sessionHeader;
     // { //Session Navigation
     //     "NAME": "REPLACE_WITH_NAME",
@@ -249,13 +285,14 @@ const MultiPlayIntentHandler = {
             && canUse.GAMENAV["Lobby"] === true;
     },
     handle(handlerInput) {
-        const speakOutput = 'You are playing multiplayer mode, you dont have a game going so starting new game.';
+        const speakOutput = "multiplayer is in the works, you can still play single player for the time being. Please say play single player to start a game."
+        //const speakOutput = 'You are playing multiplayer mode, you dont have a game going so starting new game.';
         //Set state to play solo in attributes
-        setLobbyState("Multiplay", handlerInput)
-
+        //setLobbyState("Multiplay", handlerInput) // enable once Multiplayer is activated
+        let reprompt = 'Say play single player.';
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt('continue?')
+            .reprompt(reprompt)
             .getResponse();
     }
 };
@@ -399,7 +436,41 @@ const HelloWorldIntentHandler = {
             // 5 HealIntentHandler
 //                                                                             //
 /////////////////////////////////////////////////////////////////////////////////
-
+function moveUpdater(_session, gameMode){
+    //cannot move forward if in a battle
+    let packet;
+    let session = _session;
+    let speakOutput;
+    let moveCount = GAME.dice();
+    let {inBattle} = _session[gameMode].USER_SESSION_INFO;
+    if (inBattle === true) {
+        console.log("inBattle is true") //debug
+        speakOutput = "Sorry you cannot move forward until you resolve your current battle. However, you can attempt to escape by saying escape.";
+    } else {
+        console.log("inBattle is true") //debug
+        session[gameMode].USER_SESSION_INFO.position += moveCount; 
+        session[gameMode].USER_SESSION_INFO.numberOfMoves++;
+        speakOutput = `You rolled a ${moveCount}. You moved to step ${session[gameMode].USER_SESSION_INFO.position}.`; //add sound effect?
+        const onRung = GAME.checkRungOn(session[gameMode].USER_SESSION_INFO.position);
+        const mobPickStatus = COMBAT.actOnPosition(onRung, 'stage1'); //actOnPosition(rung, stage) //modify stage to variable
+        if (mobPickStatus.name === "Clear Path") {
+            console.log("mobPickStatus resolved with clear path") //debug
+            //Change the speak outputs into variables in /speakUtil.js
+            speakOutput = 'You encountered a clear path to move forward. What do you like to do next?!';
+        } else {
+            console.log("mobPickStatus resolved with a mob") //debug
+            //function to update in combat details should session close in midbattle?
+            session[gameMode].USER_SESSION_INFO.inBattle = true;
+            session[gameMode].USER_SESSION_INFO.ongoingBattle.opponentStats = mobPickStatus.encounter;
+            speakOutput += mobPickStatus.speakOutput; //`You encountered a ${mobPickStatus.name}. How do you want to engage in this battle?`;
+        }
+    }
+    packet = {
+        session,
+        speakOutput
+    }
+    return packet;
+}
 const MoveTurnIntentHandler = {
     canHandle(handlerInput) {
         const canUse = fetchSessionAttributes(handlerInput);
@@ -408,48 +479,56 @@ const MoveTurnIntentHandler = {
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     async handle(handlerInput) {
-        let speakOutput = 'Move Turn!';
-        let returnMode = 'SOLO_PLAY'; //get Solo play or Multiplay to update session[returnMode] data i.e. SOLO_PLAY etc.
-        console.log("Inside move handler") //debug
+        let speakOutput;
+        //console.log("Inside move handler") //debug
         let session = fetchSessionAttributes(handlerInput);
+        console.log("session is: ",JSON.stringify(session))
+        console.log("gameMode is: ");
+        let gameMode = returnGameMode(session); //get Solo play or Multiplay to update session[gameMode] data i.e. SOLO_PLAY etc.
+        console.log(gameMode);
         console.log("session resolves with: ");
         console.log(session)
-        let moveCount = GAME.dice();
-        console.log("Move count is: ")
-        console.log(moveCount)
-        //add moveCount to user position
-        console.log("user position is: ")
-        console.log(session[returnMode].USER_SESSION_INFO.position);
-        session[returnMode].USER_SESSION_INFO.position += moveCount; //update move function?
-        console.log("updated session with move count to position: ")
-        console.log(session);
-        //tell user of roll and move in position
-        speakOutput = `You rolled a ${moveCount}.`; //add sound effect?
-        //increase number of total moves by player
-        session[returnMode].USER_SESSION_INFO.numberOfMoves++;
-        console.log("USER_SESSION_INFO: ", session[returnMode].USER_SESSION_INFO.numberOfMoves) //debug
-        //check status of user position on whether up a rung or below a rung (if finished the game call the return function)
-        const onRung = GAME.checkRungOn(session[returnMode].USER_SESSION_INFO.position);
-        console.log("onRung: ", onRung)
-            //check the level of difficulty in rung and execute continuation
-            //initiate Encounter function to determine battle or no battle
-        const mobPickStatus = COMBAT.actOnPosition(onRung, 'stage1'); //actOnPosition(rung, stage) //modify stage to variable
-        console.log("mobPickStatus: ", mobPickStatus) //debug
-        //save to sessionAttributes
-        //save to persistence? //already set to regular save
-        if (mobPickStatus.name === "Clear Path") {
-            console.log("mobPickStatus resolved with clear path") //debug
-            //Change the speak outputs into variables in /speakUtil.js
-            speakOutput = 'You encountered a clear path to move forward. What do you like to do next?!';
-        } else {
-            console.log("mobPickStatus resolved with a mob") //debug
-            //function to update in combat details should session close in midbattle?
-            session[returnMode].USER_SESSION_INFO.inbattle = true;
-            session[returnMode].USER_SESSION_INFO.ongoingBattle.opponentStats = mobPickStatus.encounterDetails;
-            speakOutput = mobPickStatus.speakOutput; //`You encountered a ${mobPickStatus.name}. How do you want to engage in this battle?`;
-        }
+        let moveDetails = moveUpdater(session, gameMode);
+        speakOutput = moveDetails.speakOutput;
+            // let moveCount = GAME.dice();
+            // // console.log("Move count is: ")
+            // // console.log(moveCount)
+            // //add moveCount to user position
+            // // console.log("user position is: ")
+            // // console.log(session[gameMode].USER_SESSION_INFO.position);
+            // session[gameMode].USER_SESSION_INFO.position += moveCount; //update move function?
+            // // console.log("updated session with move count to position: ")
+            // // console.log(session);
+            // //tell user of roll and move in position
+            // speakOutput = `You rolled a ${moveCount}. You moved to step ${session[gameMode].USER_SESSION_INFO.position}.`; //add sound effect?
+            // //increase number of total moves by player
+            // session[gameMode].USER_SESSION_INFO.numberOfMoves++;
+            // //console.log("USER_SESSION_INFO: ", session[gameMode].USER_SESSION_INFO.numberOfMoves) //debug
+            // //check status of user position on whether up a rung or below a rung (if finished the game call the return function)
+            // const onRung = GAME.checkRungOn(session[gameMode].USER_SESSION_INFO.position);
+            //     //create seperate onRung session object?
+            //     //when lower rung and past the step, say welcome to new rung and update the rung so concordant with step?
+            // //console.log("onRung: ", onRung)
+            //     //check the level of difficulty in rung and execute continuation
+            //     //initiate Encounter function to determine battle or no battle
+            // const mobPickStatus = COMBAT.actOnPosition(onRung, 'stage1'); //actOnPosition(rung, stage) //modify stage to variable
+            // //console.log("mobPickStatus: ", mobPickStatus) //debug
+            // //save to sessionAttributes
+            // //save to persistence? //already set to regular save
+            // if (mobPickStatus.name === "Clear Path") {
+            //     //console.log("mobPickStatus resolved with clear path") //debug
+            //     //Change the speak outputs into variables in /speakUtil.js
+            //     speakOutput = 'You encountered a clear path to move forward. What do you like to do next?!';
+            // } else {
+            //     //console.log("mobPickStatus resolved with a mob") //debug
+            //     //function to update in combat details should session close in midbattle?
+            //     session[gameMode].USER_SESSION_INFO.inbattle = true;
+            //     session[gameMode].USER_SESSION_INFO.ongoingBattle.opponentStats = mobPickStatus.encounter;
+            //     speakOutput += mobPickStatus.speakOutput; //`You encountered a ${mobPickStatus.name}. How do you want to engage in this battle?`;
+            // }
+        session = moveDetails.session;
+        saveSessionAttributes(handlerInput, session[gameMode].USER_SESSION_INFO);
         
-        saveSessionAttributes(handlerInput, session[returnMode].USER_SESSION_INFO);
         
         //if inside a battle set user to inside an ongoing battle and cannot get out until battle is complete
 
@@ -470,25 +549,34 @@ const AttackTurnIntentHandler = {
     handle(handlerInput) {
         let speakOutput = 'Attack Turn!';
         //*Retrieve sessionAttributes data
-        let returnMode = 'SOLO_PLAY';
         let session = fetchSessionAttributes(handlerInput);
+        let gameMode = returnGameMode(session); //create a function for this to detect 
         //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
-        if (session[returnMode].USER_SESSION_INFO.inbattle === false) {
+        if (session[gameMode].USER_SESSION_INFO.inbattle === false) {
+            console.log("inside AttackTurnIntentHandler: inbattle === false")
             speakOutput = 'You cannot use the attack move while not in a battle.';
             return handlerInput.responseBuilder
             .speak(speakOutput)
             .reprompt('continue?')
             .getResponse();
         }
+        
+        console.log("inside AttackTurnIntentHandler: inbattle === true")
         //*If in a battle, begin attack squence:
         //*Bring up stats of user and opponent
-        let opponentStats = session[returnMode].USER_SESSION_INFO.ongoingBattle.opponentStats;
+            //also not needed anymore after attack function completion
+            //let opponentStats = session[returnGameMode].USER_SESSION_INFO.ongoingBattle.opponentStats;
         //*use updated equipment details and stats to determine next choice of attack
             //use a function to determin this
         //*Having a sword, shield or armor changes attack vectors
         //*Roll dice for attack
+            //not needed external dice anymore after updating combat function
         //*Calculate Damage results against enemy
+        let attackReport = COMBAT.attackResult(session, gameMode);
         //*Report result
+        speakOutput = attackReport.speakOutput;
+        //update session info after attack finality
+        session = attackReport.session;
             //function determine response by equipment attack 
             //update health
             //*If opponent is still alive, it can attack back
@@ -559,7 +647,7 @@ const EscapeTurnIntentHandler = {
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Escape Turn!';
+        const speakOutput = 'Escaping counts as a turn, you are also knocked back based on your next roll, are you sure you want to flee from this battle?';
         //*Retrieve sessionAttributes data
         //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
             //Explain fleeing counts as a turn but they are not in a battle?
@@ -686,7 +774,11 @@ const CheckCoinsIntentHandler = {
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Util_CheckCoinsIntent';
     },
     handle(handlerInput) {
-        const speakOutput = 'Check Coins!';
+        let speakOutput;
+        let session = fetchSessionAttributes(handlerInput);
+        let gameMode = returnGameMode(session);
+        let coins = session[gameMode].USER_SESSION_INFO.coinPouch;
+        speakOutput = `You have ${coins} coins in your coin pouch. What is your next move?`;
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -1197,6 +1289,9 @@ const ErrorHandler = {
     }
 };
 
+const getProfile = function (handlerInput) {
+    return handlerInput.attributesManager.getSessionAttributes();
+};
 // interceptors
 
 // const NewSessionRequestInterceptor = {
@@ -1223,51 +1318,43 @@ const ErrorHandler = {
 //   }
 // };
 
-// const LoadProfileRequestInterceptor = {
-//     async process(handlerInput) {
-//         console.log("WHOLE REQUEST: " + JSON.stringify(handlerInput.requestEnvelope));
-//         const attributesManager = handlerInput.attributesManager;
+const LoadProfileRequestInterceptor = {
+    async process(handlerInput) {
+        console.log("WHOLE REQUEST: " + JSON.stringify(handlerInput.requestEnvelope));
+        const attributesManager = handlerInput.attributesManager;
         
-//         let profile = await attributesManager.getPersistentAttributes();
+        let profile = await attributesManager.getPersistentAttributes();
 
-//         const deviceId = Alexa.getDeviceId(handlerInput.requestEnvelope);
-//         const timeZone = await util.getTimeZone(handlerInput, deviceId);
-//         console.log("LoadProfileRequestInterceptor - timezone", timeZone);
-        
-//         // If no profile initiate a new one - first interaction with skill
-//         if(!profile.hasOwnProperty("lifeTime")) {
-//             profile = profileUtil.defaultProfile()
-//         } else if (profile.cactus) { // Check if there is a cactus before compute status
-//             profile.cactus = statusUtil.computeStatus(profile, moment(), timeZone);
-//             badgeUtil.evaluate(profile, moment());
-//         }
-        
-//         profile.timeZone = timeZone;
-        
-//         attributesManager.setSessionAttributes(profile);
-//         console.log("LoadProfileRequestInterceptor", JSON.stringify(attributesManager.getSessionAttributes()));
-//     }
-// }
 
-// const UpdateLatestInteractionResponseInterceptor = {
-//     process(handlerInput) {
-//         const profile = getProfile(handlerInput);
+        // If no profile initiate a new one - first interaction with skill
+        if(!profile.hasOwnProperty("lifeTime")) {
+            profile = profileUtil.defaultProfile()
+        } else if (profile.cactus) { // Check if there is a cactus before compute status
+            profile.cactus = statusUtil.computeStatus(profile, moment(), timeZone);
+            badgeUtil.evaluate(profile, moment());
+        }
         
-//         //console.log("UpdateLatestInteractionResponseInterceptor", JSON.stringify(profile))
-        
-//         profile.latestInteraction = moment.now();
-        
-//         handlerInput.attributesManager.setPersistentAttributes(profile);
-//         handlerInput.attributesManager.savePersistentAttributes();
-//     }
-// }
+        attributesManager.setSessionAttributes(profile);
+        console.log("LoadProfileRequestInterceptor", JSON.stringify(attributesManager.getSessionAttributes()));
+    }
+}
 
-// const LogResponseJsonResponseInterceptor = {
-//     process(handlerInput) {
-//         //TODO figure out why this response is empty on the LaunchRequest response.
-//         console.log("Response JSON:", JSON.stringify(handlerInput.responseBuilder.getResponse()));
-//     }
-// };
+const UpdateLatestInteractionResponseInterceptor = {
+    process(handlerInput) {
+        const profile = getProfile(handlerInput);
+        
+        //console.log("UpdateLatestInteractionResponseInterceptor", JSON.stringify(profile))
+        handlerInput.attributesManager.setPersistentAttributes(profile);
+        handlerInput.attributesManager.savePersistentAttributes();
+    }
+}
+
+const LogResponseJsonResponseInterceptor = {
+    process(handlerInput) {
+        //TODO figure out why this response is empty on the LaunchRequest response.
+        console.log("Response JSON:", JSON.stringify(handlerInput.responseBuilder.getResponse()));
+    }
+};
 
 /**
  * This handler acts as the entry point for your skill, routing all request and response
@@ -1309,6 +1396,13 @@ exports.handler = Alexa.SkillBuilders.custom()
         FallbackIntentHandler,
         SessionEndedRequestHandler,
         IntentReflectorHandler)
+    .addRequestInterceptors(
+        LoadProfileRequestInterceptor
+    )
+    .addResponseInterceptors(
+        UpdateLatestInteractionResponseInterceptor,
+        LogResponseJsonResponseInterceptor
+    )
     .addErrorHandlers(
         ErrorHandler)
     .withPersistenceAdapter(

@@ -115,3 +115,24 @@ Move Handler kind of janky and needs rework. Modularize it similar to Attack han
 
 created a function to return the gameMode
 finished check coins handler
+
+Consider Updates to MoveHandler:
+//create seperate onRung session object?
+//when lower rung and past the step, say welcome to new rung and update the rung so concordant with step?
+
+//There is an issue regarding saving stateVUI. the Variable stateVUI updates to default after a while
+it is not a reliable store of state. I need to update the saveSessionHandlers to prevent unwanted updates of states.
+
+
+Thursday Jan 21 2021:
+
+Going to rewrite the entire code body to seperate the request Handlers and actual code functions
+Rewriting will take into consideration of interceptors and rebuild with this new parameter.
+Sessions will now be passed in and out of modifications.
+
+Structuring code will be in these categories:
+1) Interceptors
+2) Session packet passers
+3) Selection Speech Queries
+4) Modular Function sets
+5) Minimal request handler syntax - complexity only reside in Modular function sets
