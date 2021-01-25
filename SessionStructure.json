@@ -1,0 +1,67 @@
+{
+    "SOLO_PLAY": {
+        "SESSION_HEADER": {
+            "NAME": "REPLACE_WITH_NAME",
+            "TIME:": "REPLACE_WITH_TIME"
+        },
+        "SESSION_NAV": {},
+        "GAME_LEVEL_SET": {
+            "LEVEL_ONE": true,
+            "LEVEL_TWO": false,
+            "LEVEL_THREE": false
+        },
+        "USER_SESSION_INFO": {
+            "position": 8,
+            "userStats": {
+                "hitpoints": 10,
+                "attack": 1,
+                "defense": 0
+            },
+            "numberOfMoves": 3,
+            "stage": 0,
+            "levelRung": {
+                "first": true,
+                "second": false,
+                "third": false,
+                "fourth": false
+            },
+            "inBattle": true,
+            "coinPouch": 3,
+            "equipted": {
+                "sword": false,
+                "armor": false,
+                "shield": false
+            },
+            "inventory": [],
+            "ongoingBattle": {
+                "battleSequenceComplete": false,
+                "opponentStats": {
+                    "name": "Giant Rat",
+                    "attack": [
+                        1,
+                        2,
+                        3
+                    ],
+                    "hitpoints": 3,
+                    "loot": [
+                        1,
+                        2
+                    ]
+                },
+                "userStats": null
+            },
+            "healingCost": 0,
+            "inbattle": false
+        }
+    },
+    "MULTI_PLAY": {},
+    "LEADERBOARD": {},
+    "GAMENAV": {
+        "Lobby": false,
+        "Soloplay": true,
+        "Multiplay": false,
+        "Leaderboard": false,
+        "Premium": false,
+        "Tutorial": false
+    }
+}

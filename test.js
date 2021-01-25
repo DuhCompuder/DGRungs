@@ -14,3 +14,6 @@ const active = state.filter(function(id) {
 
 console.log(active[0])
 console.log(typeof active[0])
+
+let obj = {}; 
+obj.foo? console.log(true): console.log(obj)

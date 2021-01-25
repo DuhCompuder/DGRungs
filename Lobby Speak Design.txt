@@ -136,3 +136,54 @@ Structuring code will be in these categories:
 3) Selection Speech Queries
 4) Modular Function sets
 5) Minimal request handler syntax - complexity only reside in Modular function sets
+
+Updated the whole save session functions and replaced extraneous functions with more modularized ones
+No bugs in saving or updating present after the update.
+
+MoveTurn and Attack Turn Handlers work just fine.
+Finihsed check score, check health and check position handler
+
+Work on inventory and equip handler after completing shop functionalities
+Added numbers to level rungs for functions that use it to evaluate commands and other functionalities
+This helped achieve an easier way to let players know once they hit a new rung that difficulty increased
+It probably is also less computation demanding
+
+Resolved all bugs and function issues after the update.
+
+Work on escape and heal handler tomorrow because easier. 
+-make sure to not that max health does cannot use heal..
+
+
+Friday Jan 22 2021:
+
+Updated heal handler and escape handler
+Only crude draft of the handler functions. need to flush out more.
+
+Sunday: Jan 24 2021:
+
+Flush out and perfect the current functions
+Realized that the yes no intents for start new game handler and escape battle handler weren't sent to response builder
+
+BUGS: 
+FIXED-When clear path is encountered, somehow inbattle got updated to true when it is suppose to be functionalities
+-Landing on the new rung does not trigger the new rung alerts.
+FIXED-Escape battle says need to be in a game mode when already in gamemode but not in battle.
+
+Rework the update move handler to register numbers for rungs rather than strings for easier evalutation
+and more efficient code.
+
+Completed new move handler update to only numbers instead of strings for level evaluation 
+and got rid of extraneous unefficient code
+
+Finally resolved BUG:FIXED: -Landing on the new rung does not trigger the new rung alerts.
+
+Then:
+add the complex combat attack and defense 
+add the shop items
+add equip function
+add boss battle functionality
+add premium level
+add premium equipment?
+
+Finish
+
