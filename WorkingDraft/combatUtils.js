@@ -55,25 +55,35 @@ function moveUpdater(_session, gameMode){
         speakOutput = "Sorry you cannot move forward until you resolve your current battle. However, you can attempt to escape by saying escape.";
     } else {
         console.log("inBattle is false")
+        let oldPosition = session[gameMode].USER_SESSION_INFO.position;
+        let oldRung =  GAME.checkRungOn(oldPosition);
         session[gameMode].USER_SESSION_INFO.position += moveCount; 
         session[gameMode].USER_SESSION_INFO.numberOfMoves++;
+        let newPosition = session[gameMode].USER_SESSION_INFO.position;
+        let newRung =  GAME.checkRungOn(newPosition);
         speakOutput = `You rolled a ${moveCount}. You moved to step ${session[gameMode].USER_SESSION_INFO.position}.`; //add sound effect?
         // *const onRung = GAME.checkRungOn(session[gameMode].USER_SESSION_INFO.position);
         // *let updateSession = setLevelRung(session, gameMode, onRung);
         // *session = updateSession;
         //const mobPickStatus = actOnPosition(onRung, 'stage1'); //actOnPosition(rung, stage) //modify stage to variable --create function for this because there is a state variable for this already that i didnt utilize
-        let mobPickStatus = actOnPosition(gameMode, session);
+        let mobPickStatus = actOnPosition(gameMode, session, oldRung, newRung);
         //update session after mobPickStatus
         session = mobPickStatus.session;
         console.log("mobPickStatus is: ", mobPickStatus)
-        if (mobPickStatus.name === "Clear Path") {
-            //console.log("mobPickStatus resolved with clear path") //debug
+        if (mobPickStatus.encounter.name === "Clear Path") {
+            session[gameMode].USER_SESSION_INFO.inBattle = false; // double checks that not in battle
+            console.log("mobPickStatus resolved with clear path") //debug
+            console.log("inBattle updated to false");
+            console.log(JSON.stringify(session));
             //Change the speak outputs into variables in /speakUtil.js
-            speakOutput = 'You encountered a clear path to move forward. What do you like to do next?!';
+            speakOutput = mobPickStatus.speakOutput;
+            //'You encountered a clear path to move forward. What do you like to do next?!';
         } else {
-            //console.log("mobPickStatus resolved with a mob") //debug
+            console.log("mobPickStatus resolved with a mob") //debug
             //function to update in combat details should session close in midbattle?
             session[gameMode].USER_SESSION_INFO.inBattle = true;
+            console.log("inBattle updated to true");
+            console.log(JSON.stringify(session));
             session[gameMode].USER_SESSION_INFO.ongoingBattle.opponentStats = mobPickStatus.encounter;
             speakOutput += mobPickStatus.speakOutput; //`You encountered a ${mobPickStatus.name}. How do you want to engage in this battle?`;
         }
@@ -84,44 +94,47 @@ function moveUpdater(_session, gameMode){
     }
     return packet;
 }
+// Really don't even need this function any more....
+// function setLevelRung(_session, gameMode, level) {
+//     // console.log("inside setLevelRung")
+//     // console.log("gameMode: ", gameMode)
+//     // console.log("level: ", level)
+//     // console.log("session: ", _session)
 
-function setLevelRung(_session, gameMode, level) {
-    // console.log("inside setLevelRung")
-    // console.log("gameMode: ", gameMode)
-    // console.log("level: ", level)
-    // console.log("session: ", _session)
-
-    let session = _session;
-    session[gameMode].USER_SESSION_INFO.levelRung[level] = true;
-    // console.log(JSON.stringify(session[gameMode].USER_SESSION_INFO.levelRung))
-    for (const lvl in session[gameMode].USER_SESSION_INFO.levelRung) {
-        // console.log("lvl in session[gameMode].USER_SESSION_INFO.levelRung: ", lvl)
-        // console.log(`Does ${lvl} equal ${level}?`)
-        if(lvl !== level){
-            // console.log(`${lvl} does not equal ${level}.`)
-            session[gameMode].USER_SESSION_INFO.levelRung[lvl] = false;
-        }
-    }
-    console.log("completed forLoop")
-    switch(level) {
-        case "first":
-            session[gameMode].USER_SESSION_INFO.levelnum = 1;
-            break;
-        case "second":
-            session[gameMode].USER_SESSION_INFO.levelnum = 2;
-            break;
-        case "third":
-            session[gameMode].USER_SESSION_INFO.levelnum = 3
-            break;
-        case "fourth":
-            session[gameMode].USER_SESSION_INFO.levelnum = 4;
-            break;
-        case "final":
-            session[gameMode].USER_SESSION_INFO.levelnum = 5;
-            break;
-    }
-    return session;
-}
+//     let session = _session;
+//     session[gameMode].USER_SESSION_INFO.levelnum = level;
+    
+//     // // old version with strings get replaced with pure numbers //
+//     // session[gameMode].USER_SESSION_INFO.levelRung[level] = true;
+//     // // console.log(JSON.stringify(session[gameMode].USER_SESSION_INFO.levelRung))
+//     // for (const lvl in session[gameMode].USER_SESSION_INFO.levelRung) {
+//     //     // console.log("lvl in session[gameMode].USER_SESSION_INFO.levelRung: ", lvl)
+//     //     // console.log(`Does ${lvl} equal ${level}?`)
+//     //     if(lvl !== level){
+//     //         // console.log(`${lvl} does not equal ${level}.`)
+//     //         session[gameMode].USER_SESSION_INFO.levelRung[lvl] = false;
+//     //     }
+//     // }
+//     // console.log("completed forLoop")
+//     // switch(level) {
+//     //     case "first":
+//     //         session[gameMode].USER_SESSION_INFO.levelnum = 1;
+//     //         break;
+//     //     case "second":
+//     //         session[gameMode].USER_SESSION_INFO.levelnum = 2;
+//     //         break;
+//     //     case "third":
+//     //         session[gameMode].USER_SESSION_INFO.levelnum = 3
+//     //         break;
+//     //     case "fourth":
+//     //         session[gameMode].USER_SESSION_INFO.levelnum = 4;
+//     //         break;
+//     //     case "final":
+//     //         session[gameMode].USER_SESSION_INFO.levelnum = 5;
+//     //         break;
+//     // }
+//     return session;
+// }
 
 function battleSequence() {
     //Load user combat stats
@@ -173,20 +186,19 @@ function fetchLoot(mobDetails, session, gameMode) {
     return packet;
 }
 
-function actOnPosition(gameMode, session) {
+function actOnPosition(gameMode, _session, oldRung, currentRung) {
     console.log("inside actOnPosition")
+    console.log("passed oldRung param is: ", oldRung);
     let packet;
+    let session = _session;
     let speakOutput = '';
-    //check the rung of current play according to the position after position update --> this is the new rung
-    const onRung = GAME.checkRungOn(session[gameMode].USER_SESSION_INFO.position);
-    //set the level rung value to true
-    let updatedSession = setLevelRung(session, gameMode, onRung);
+    // let updatedSession = setLevelRung(session, gameMode, currentRung);
+    session[gameMode].USER_SESSION_INFO.levelnum = currentRung;
     console.log("completed setLevelRung()")
-    let oldlevel = session[gameMode].USER_SESSION_INFO.levelnum;
-    let newlevel = updatedSession[gameMode].USER_SESSION_INFO.levelnum;
+
     // session = updatedSession;
-    let stage = updatedSession[gameMode].USER_SESSION_INFO.stage;
-    const encounter = GAME.initiateEncounter(onRung, stage); //initiateEncounter(level, stage)
+    let stage = session[gameMode].USER_SESSION_INFO.stage;
+    const encounter = GAME.initiateEncounter(currentRung, stage); //initiateEncounter(level, stage)
     console.log("The encounter is: "); //debug
     // Structure: 
     // {
@@ -197,26 +209,27 @@ function actOnPosition(gameMode, session) {
     // }
     console.log(encounter); //debug
     // if first encounter new rung, alert user:
-    if (oldlevel < newlevel) {
-        switch (newlevel) {
-            case 1:
+    console.log("oldRung: ", oldRung, "currentRung: ", currentRung)
+    if (oldRung < currentRung) {
+        console.log("oldRung: ", oldRung, "less than currentRung: ", currentRung)
+        switch (currentRung) {
+            case "1":
                 //speakOutput = `You encountered a ${encounter.name}. What would you like to do?`;
                 break;
-            case 2:
+            case "2":
                 speakOutput = ` You reached second rung. The difficulty now increases from here.`;
                 break;
-            case 3:
+            case "3":
                 speakOutput = ` You reached third rung. The difficulty now increases from here.`;
                 break;
-            case 4:
+            case "4":
                 speakOutput = ` You reached fourth rung. The difficulty now increases from here.`;
                 break;
-            case 5:
+            case "5":
                 speakOutput = ` You completed the game`;
                 break;
         }
     }
-    session = updatedSession;
     speakOutput += ` You encountered a ${encounter.name}. What would you like to do?`;
     packet = {
         session,

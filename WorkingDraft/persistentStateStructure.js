@@ -32,12 +32,6 @@ const dataSoloplay = {
         numberOfMoves: 0,
         stage: 1,
         levelnum: 1,
-        levelRung: {
-            first: true,
-            second: false,
-            third: false,
-            fourth: false,
-        },
         inBattle: false,
         coinPouch: 0,
         equipted: {
@@ -51,7 +45,7 @@ const dataSoloplay = {
             opponentStats: null,
             userStats: null
         },
-        healingCost: 0
+        healCount: 0
     }
 }
 const dataMultiplay = {
@@ -83,12 +77,6 @@ const dataMultiplay = {
                 numberOfMoves: 0,
                 stage: 1,
                 levelnum: 1,
-                levelRung: {
-                    first: true,
-                    second: false,
-                    third: false,
-                    fourth: false,
-                },
                 inBattle: false,
                 coinPouch: 0,
                 equipted: {
@@ -102,7 +90,7 @@ const dataMultiplay = {
                     opponentStats: null,
                     userStats: null
                 },
-                healingCost: 0
+                healCount: 0
             }
         },
         PLAYER_TWO: {
@@ -118,13 +106,8 @@ const dataMultiplay = {
                     defense: 0
                 },
                 numberOfMoves: 0,
-                stage: 0,
-                levelRung: {
-                    first: true,
-                    second: false,
-                    third: false,
-                    fourth: false,
-                },
+                stage: 1,
+                levelnum: 1,
                 inBattle: false,
                 coinPouch: 0,
                 equipted: {
@@ -138,7 +121,7 @@ const dataMultiplay = {
                     opponentStats: null,
                     userStats: null //no concluded stats?
                 },
-                healingCost: 0
+                healCount: 0
             }
         }
     }

@@ -1,7 +1,6 @@
 const dice =()=>{
     return Math.floor(Math.random()*6 + 1);
 }
-
 const mobList = {
     rat:{
         name: "Giant Rat",
@@ -114,28 +113,28 @@ const shopItems = {
 
 const rungRatios = {
     stage1: {   
-        first: {
+        1: {
             rat: 40,
             boar: 30,
             wolf: 0,
             bear: 0,
             free: 30
         },
-        second: {
+        2: {
             rat: 15,
             boar: 40,
             wolf: 25,
             bear: 5,
             free: 15
         },
-        third: {
+        3: {
             rat: 5,
             boar: 25,
             wolf: 40,
             bear: 22,
             free: 8
         },
-        fourth: {
+        4: {
             rat: 0,
             boar: 15,
             wolf: 45,
@@ -144,28 +143,28 @@ const rungRatios = {
         }
     },
     stage2: {   
-        first: {
+        1: {
             rat: 40,
             boar: 30,
             wolf: 0,
             bear: 0,
             free: 30
         },
-        second: {
+        2: {
             rat: 15,
             boar: 40,
             wolf: 25,
             bear: 5,
             free: 15
         },
-        third: {
+        3: {
             rat: 5,
             boar: 25,
             wolf: 40,
             bear: 22,
             free: 8
         },
-        fourth: {
+        4: {
             rat: 0,
             boar: 15,
             wolf: 45,
@@ -174,28 +173,28 @@ const rungRatios = {
         }
     },
     stage3: {   
-        first: {
+        1: {
             rat: 40,
             boar: 30,
             wolf: 0,
             bear: 0,
             free: 30
         },
-        second: {
+        2: {
             rat: 15,
             boar: 40,
             wolf: 25,
             bear: 5,
             free: 15
         },
-        third: {
+        3: {
             rat: 5,
             boar: 25,
             wolf: 40,
             bear: 22,
             free: 8
         },
-        fourth: {
+        4: {
             rat: 0,
             boar: 15,
             wolf: 45,
@@ -254,12 +253,7 @@ const startDefault = { //For Solo
     },
     numberOfMoves: 0,
     stage: 1,
-    levelRung: {
-        first: true,
-        second: false,
-        third: false,
-        fourth: false,
-    },
+    levelnum: 1,
     inBattle: false,
     coinPouch: 0,
     equipted: {
@@ -273,7 +267,7 @@ const startDefault = { //For Solo
         opponentStats: null,
         userStats: null
     },
-    healingCost: 0
+    healCount: 0
 };
 
 function initiateEncounter(level, stage){
@@ -299,15 +293,15 @@ function initiateEncounter(level, stage){
 function checkRungOn(step) {
     console.log("inside checkRungOn")
     if (step > 0 && step < 25) {
-        return "first";
+        return "1";
     } else if (step > 24 && step < 50) {
-        return "second";
+        return "2";
     } else if (step > 49 && step < 75) {
-        return "third";
+        return "3";
     } else if (step > 74 && step < 100) {
-        return "fourth";
+        return "4";
     } else {
-        return "final";
+        return "5";
     }
 }
 

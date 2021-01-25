@@ -22,7 +22,8 @@ const stateVUI = {
 
 const yesNoModifiers = {
     returnToLobby: false,
-    startNewGame: false
+    startNewGame: false,
+    escapeBattle: false
 }
 
 function setLobbyState(lobbyState, handlerInput) {
@@ -490,12 +491,31 @@ const BlockAttackIntentHandler = {
 const EscapeTurnIntentHandler = {
     canHandle(handlerInput) {
         const canUse = getProfile(handlerInput);
+        let session = getProfile(handlerInput);
+        let gameMode = returnGameMode(session);
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
             && Alexa.getIntentName(handlerInput.requestEnvelope) === 'Turn_EscapeIntent'
-            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true)
+            && canUse[gameMode].USER_SESSION_INFO.inBattle === true;
     },
     handle(handlerInput) {
-        const speakOutput = 'Escaping counts as a turn, you are also knocked back based on your next roll, are you sure you want to flee from this battle?';
+        const { attributesManager } = handlerInput;
+        let session = getProfile(handlerInput);
+        let gameMode = returnGameMode(session);
+        let speakOutput = 'Escaping counts as a turn, you are also knocked back based on your next roll, are you sure you want to flee from this battle?';
+        session.MODIFIERS.escapeBattle = true;
+        // // EXPORTED TO YES HANDLER // //
+        // let roll = GAME.dice();
+        // speakOutput += `You rolled a dice. You escaped falling ${roll} steps behind.`;
+        // //update move count
+        // session[gameMode].USER_SESSION_INFO.numberOfMoves++;
+        // //update position
+        // session[gameMode].USER_SESSION_INFO.position -= roll;
+        // speakOutput += ` Your current position is now ${session[gameMode].USER_SESSION_INFO.position}. What is your next move?`
+        //update session
+        attributesManager.setSessionAttributes(session);
+        
+        
         //*Retrieve sessionAttributes data
         //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
             //Explain fleeing counts as a turn but they are not in a battle?
@@ -539,7 +559,26 @@ const HealIntentHandler = {
             && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
     },
     handle(handlerInput) {
-        const speakOutput = 'Heal Turn!';
+        const {attributesManager} = handlerInput;
+        let speakOutput;
+        let session = getProfile(handlerInput);
+        let gameMode = returnGameMode(session);
+        let {healCount} = session[gameMode].USER_SESSION_INFO;
+        session[gameMode].USER_SESSION_INFO.healCount++;
+        let costToHeal; //if not in battle but cost to heal in battle doubles the heal count
+        if (session[gameMode].USER_SESSION_INFO.inBattle === false){
+            costToHeal = 7 + healCount;
+            speakOutput = `The cost to heal outside of a battle is ${costToHeal} coins. Do you want to spend your coins to heal?`;
+            //update move count
+            session[gameMode].USER_SESSION_INFO.numberOfMoves++;
+        } else {
+            costToHeal = 7 + (2*healCount);
+            speakOutput = `The cost to heal inside a battle is ${costToHeal} coins. Do you want to spend your coins to heal?`; //add what is your next move to yes/no handle after this
+            //update move count
+            session[gameMode].USER_SESSION_INFO.numberOfMoves++;
+        }
+        //update session
+        attributesManager.setSessionAttributes(session);
         
         //*Retrieve sessionAttributes data
         //*Tell player they are not in a battle if they are not and to ask them what do they want to do next
@@ -610,7 +649,7 @@ const RequestPositionIntentHandler = {
         let session = getProfile(handlerInput);
         let gameMode = returnGameMode(session);
         let pos = session[gameMode].USER_SESSION_INFO.position;
-        let speakOutput = `Your current health level is at ${pos}. What do you want to do next?`;
+        let speakOutput = `Your current position is at step ${pos}. What do you want to do next?`;
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -864,6 +903,95 @@ const NoIntent_StartNewGameHandler = {
             .getResponse();
     }
 };
+
+// Yes escape battle
+
+const YesIntent_EscapeBattleHandler = {
+    canHandle(handlerInput) {
+        const canUse = getProfile(handlerInput);
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.YesIntent'
+            && canUse.GAMENAV["Lobby"] === false
+            && canUse.MODIFIERS.escapeBattle === true;
+    },
+    handle(handlerInput) {
+        const { attributesManager } = handlerInput;
+        let session = getProfile(handlerInput);
+        let gameMode = returnGameMode(session);
+        let speakOutput;
+        
+        let roll = GAME.dice();
+        speakOutput = `You rolled a dice. You escaped falling ${roll} steps behind.`;
+        //update move count
+        session[gameMode].USER_SESSION_INFO.numberOfMoves++;
+        //update position
+        session[gameMode].USER_SESSION_INFO.position -= roll;
+        let newPosition = session[gameMode].USER_SESSION_INFO.position;
+        //update levelnum
+        let newRung =  GAME.checkRungOn(newPosition);
+        session[gameMode].USER_SESSION_INFO.levelnum = newRung;
+        
+        
+        speakOutput += ` Your current position is now ${session[gameMode].USER_SESSION_INFO.position}. What is your next move?`
+        
+        session[gameMode].USER_SESSION_INFO.inBattle = false;
+        session.MODIFIERS.escapeBattle = false;
+        attributesManager.setSessionAttributes(session);
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(PROMPT.LOBBYSPEAK)
+            .getResponse();
+    }
+};
+
+// DEFAULT NO INTENT MODIFIER HANDLER //
+const NoIntent_DefaultModifierHandler = {
+    canHandle(handlerInput) {
+        const canUse = getProfile(handlerInput);
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.NoIntent'
+            && (canUse.GAMENAV["Soloplay"] === true || canUse.GAMENAV["Multiplay"] === true);
+    },
+    handle(handlerInput) {
+        let speakOutput = "OK, please say continue";
+        const { attributesManager } = handlerInput
+        let session = getProfile(handlerInput);
+        const state = Object.keys(session.GAMENAV);
+        const active = state.filter(function(id) {
+            if(session.GAMENAV[id] === true){
+                return session.GAMENAV[id];
+            }
+        })
+        // Three options for switch statements
+        // 1) Speak response to continue current vui state
+        // 2) Redirect to continue handler for current vui state
+        // 3) Speak response to similar first accessing current vui state
+        switch (active[0]) {
+            case "Lobby":
+                speakOutput = "OK, please say continue";
+                break;
+            case "Soloplay":
+                speakOutput = "OK, please say continue game"; 
+                break;
+            case "Multiplay":
+                speakOutput = "OK, please say continue game";
+                break;
+            case "Leaderboard":
+                speakOutput = "OK, please say continue";
+                break;
+            case "Tutorial":
+                speakOutput = "OK, please say continue";
+                break;
+        }
+        session.MODIFIERS = yesNoModifiers;
+        attributesManager.setSessionAttributes(session);
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt("Say continue.")
+            .getResponse();
+    }
+};
+
 ///////////////////////////////////////////////////////////
 //                                      //
 //      Default Handlers                //
@@ -913,6 +1041,7 @@ const FallbackIntentHandler = {
         console.log("In FallbackIntentHandler")
         let speakOutput;
         let intentName = Alexa.getIntentName(handlerInput.requestEnvelope);
+        let session = getProfile(handlerInput);
         //All handler names
         switch(intentName) {
             //Main VUI state intents
@@ -946,7 +1075,11 @@ const FallbackIntentHandler = {
             speakOutput = 'You cannot use the heal command outside of a game session. Please go to Single Player or MultiPlayer mode.';
                 break;
             case "Turn_EscapeIntent":
-            speakOutput = 'You cannot use the escape battle command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                if ((session.GAMENAV.Soloplay === true) || (session.GAMENAV.Multiplay === true)) {
+                    speakOutput = 'You cannot use the escape battle command outside of a battle. Please continue moving forward.';
+                } else {
+                    speakOutput = 'You cannot use the escape battle command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                }
                 break;
             case "Turn_MoveIntent":
             speakOutput = 'You cannot use the move forward command outside of a game session. Please go to Single Player or MultiPlayer mode.';
@@ -1007,6 +1140,7 @@ const IntentReflectorHandler = {
         console.log("In IntentReflectorHandler") //debug
         const intentName = Alexa.getIntentName(handlerInput.requestEnvelope);
         let speakOutput;
+        let session = getProfile(handlerInput);
         switch(intentName) {
             //Main VUI state intents
             case "Main_PlaySolo":
@@ -1040,7 +1174,11 @@ const IntentReflectorHandler = {
             speakOutput = 'You cannot use the heal command outside of a game session. Please go to Single Player or MultiPlayer mode.';
                 break;
             case "Turn_EscapeIntent":
-            speakOutput = 'You cannot use the escape battle command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                if ((session.GAMENAV.Soloplay === true) || (session.GAMENAV.Multiplay === true)) {
+                    speakOutput = 'You cannot use the escape battle command outside of a battle. Please continue moving forward.';
+                } else {
+                    speakOutput = 'You cannot use the escape battle command outside of a game session. Please go to Single Player or MultiPlayer mode.';
+                }
                 break;
             case "Turn_MoveIntent":
             speakOutput = 'You cannot use the move forward command outside of a game session. Please go to Single Player or MultiPlayer mode.';
@@ -1136,13 +1274,22 @@ const LoadProfileRequestInterceptor = {
         //let profile = attributes[gameMode].USER_SESSION_INFO;
         console.log("hasOwnProperty?: ", attributes.hasOwnProperty("SOLO_PLAY"))
         // If no profile initiate a new one - first interaction with skill
-        if(!attributes.hasOwnProperty("SOLO_PLAY") || !attributes.hasOwnProperty("MULTI_PLAY")) {
+        //let gameMode = returnGameMode();
+        if(!attributes.hasOwnProperty("SOLO_PLAY")) {
             console.log("setting default profile...")
             attributes.SOLO_PLAY = STATE.dataSoloplay;
             attributes.GAMENAV = stateVUI;
             attributes.MODIFIERS = yesNoModifiers;
             //attributes.MULTI_PLAY = STATE.MULTI_PLAY; //Not Complete yet
         } 
+        
+        // if(!attributes.hasOwnProperty("MULTI_PLAY")) {
+        //     console.log("setting default profile...")
+        //     attributes.MULTI_PLAY = STATE.dataSoloplay;
+        //     attributes.GAMENAV = stateVUI;
+        //     attributes.MODIFIERS = yesNoModifiers;
+        //     //attributes.MULTI_PLAY = STATE.MULTI_PLAY; //Not Complete yet
+        // } 
         
         attributesManager.setSessionAttributes(attributes);
         console.log("LoadProfileRequestInterceptor", JSON.stringify(attributesManager.getSessionAttributes()));
@@ -1233,6 +1380,10 @@ exports.handler = Alexa.SkillBuilders.custom()
         ///Yes/No handlers
         YesIntent_ReturnLobbyHandler,
         NoIntent_ReturnLobbyHandler,
+        YesIntent_StartNewGameHandler,
+        NoIntent_StartNewGameHandler,
+        YesIntent_EscapeBattleHandler,
+        NoIntent_DefaultModifierHandler,
         /// Default Utility
         HelpIntentHandler,
         CancelAndStopIntentHandler,
